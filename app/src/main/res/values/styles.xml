@@ -1,0 +1,31 @@
+<resources>
+
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">@color/colorAppPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+
+        <item name="android:textColorPrimary">@color/white</item>
+        <item name="android:textColorSecondary">@color/white</item>
+        <item name="android:textColorHint">@color/white</item>
+    </style>
+
+    <style name="AppTheme.ToolBar" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:textColorSecondary">@color/black</item>
+        <item name="android:textColorPrimary">@color/white</item>
+        <item name="android:textColorHint">@color/white</item>
+        <item name="colorAccent">@color/colorAppPrimary</item>
+    </style>
+
+    <style name="AppTheme.MusicPlayer">
+        <item name="android:textColor">#FFFFFF</item>
+    </style>
+
+    <style name="AppTheme.SeekBar" parent="Base.Widget.AppCompat.SeekBar">
+        <item name="colorPrimary">@color/colorAppPrimary</item>
+        <item name="colorPrimaryDark">@color/colorAppPrimary</item>
+        <item name="colorAccent">@color/colorAppPrimary</item>
+        <item name="android:paddingLeft">0dp</item>
+        <item name="android:paddingRight">0dp</item>
+    </style>
+</resources>

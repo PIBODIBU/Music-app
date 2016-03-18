@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorAppPrimary">#3F51B5</color>
+    <color name="colorPrimaryDark">#303F9F</color>
+    <color name="colorAccent">#009688</color>
+
+    <color name="textPrimary">#212121</color>
+    <color name="textSecondary">#727272</color>
+    <color name="divider">#B6B6B6</color>
+
+    <color name="black_20">#14000000</color>
+    <color name="black">#000</color>
+
+    <color name="white">#FFFFFF</color>
+    <color name="bg_white_dark">#ebedf0</color>
+
+    <color name="item_selected">#1e3f51b5</color>
+    <color name="item_normal">@android:color/transparent</color>
+
+    <color name="primary_20">#143f51b5</color>
+</resources>
