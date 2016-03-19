@@ -2,7 +2,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_white_dark"
+    android:background="@color/white"
+    android:clickable="true"
     android:fitsSystemWindows="true"
     app:behavior_hideable="true"
     app:layout_behavior="android.support.design.widget.BottomSheetBehavior">
@@ -48,16 +49,16 @@
             android:paddingRight="16dp">
 
             <TextView
-                android:id="@+id/song_duration_current"
+                android:id="@+id/time_stamp_current"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentLeft="true"
                 android:layout_alignParentStart="true"
-                android:text="1:35"
+                android:text="1:42"
                 android:textColor="@color/textSecondary" />
 
             <TextView
-                android:id="@+id/song_duration"
+                android:id="@+id/time_stamp_duration"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentEnd="true"
@@ -70,18 +71,29 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingLeft="16dp">
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp">
 
             <TextView
+                android:id="@+id/bottom_sheet_song_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:ellipsize="marquee"
+                android:marqueeRepeatLimit="marquee_forever"
+                android:scrollHorizontally="true"
+                android:singleLine="true"
                 android:text="Song title"
                 android:textColor="@color/textPrimary"
                 android:textSize="24sp" />
 
             <TextView
+                android:id="@+id/bottom_sheet_song_subtitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:ellipsize="marquee"
+                android:marqueeRepeatLimit="marquee_forever"
+                android:scrollHorizontally="true"
+                android:singleLine="true"
                 android:text="Song subtitle"
                 android:textColor="@color/textSecondary"
                 android:textSize="16sp" />
@@ -101,47 +113,52 @@
                 android:orientation="horizontal">
 
                 <ImageButton
+                    android:id="@+id/bottom_sheet_previous"
                     android:layout_width="@dimen/music_control_size"
                     android:layout_height="@dimen/music_control_size"
                     android:layout_gravity="center_vertical"
-                    android:background="@drawable/item_bg"
+                    android:background="@drawable/item_bg_white"
                     android:scaleType="fitXY"
                     android:src="@drawable/ic_skip_previous_primary_24dp" />
 
                 <ImageButton
+                    android:id="@+id/bottom_sheet_rewind_back"
                     android:layout_width="@dimen/music_control_size"
                     android:layout_height="@dimen/music_control_size"
                     android:layout_gravity="center_vertical"
                     android:layout_marginLeft="8dp"
                     android:layout_marginRight="8dp"
-                    android:background="@drawable/item_bg"
+                    android:background="@drawable/item_bg_white"
                     android:scaleType="fitXY"
                     android:src="@drawable/ic_fast_rewind_primary_24dp" />
 
                 <ImageButton
+                    android:id="@+id/bottom_sheet_play_stop"
                     android:layout_width="56dp"
                     android:layout_height="56dp"
                     android:layout_marginLeft="8dp"
                     android:layout_marginRight="8dp"
-                    android:background="@drawable/item_bg"
-                    android:scaleType="fitXY"
+                    android:background="@drawable/item_bg_white"
+                    android:scaleType="centerCrop"
                     android:src="@drawable/ic_play_arrow_primary_24dp" />
 
                 <ImageButton
+                    android:id="@+id/bottom_sheet_rewind_forward"
                     android:layout_width="@dimen/music_control_size"
                     android:layout_height="@dimen/music_control_size"
                     android:layout_gravity="center_vertical"
                     android:layout_marginLeft="8dp"
                     android:layout_marginRight="8dp"
-                    android:background="@drawable/item_bg"
+                    android:background="@drawable/item_bg_white"
                     android:scaleType="fitXY"
                     android:src="@drawable/ic_fast_forward_primary_24dp" />
 
                 <ImageButton
+                    android:id="@+id/bottom_sheet_next"
                     android:layout_width="@dimen/music_control_size"
                     android:layout_height="@dimen/music_control_size"
                     android:layout_gravity="center_vertical"
-                    android:background="@drawable/item_bg"
+                    android:background="@drawable/item_bg_white"
                     android:scaleType="fitXY"
                     android:src="@drawable/ic_skip_next_primary_24dp" />
             </LinearLayout>
@@ -163,35 +180,102 @@
                 android:orientation="horizontal"
                 android:weightSum="4">
 
-                <ImageButton
-                    android:layout_width="56dp"
+                <RelativeLayout
+                    android:id="@+id/bottom_sheet_control_volume_container"
+                    android:layout_width="wrap_content"
                     android:layout_height="56dp"
                     android:layout_weight="1"
-                    android:background="@android:color/transparent"
-                    android:src="@drawable/ic_format_list_bulleted_black_24dp" />
+                    android:gravity="center">
 
-                <ImageButton
-                    android:layout_width="56dp"
+                    <ImageButton
+                        android:id="@+id/bottom_sheet_control_volume"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="@drawable/item_bg_transparent"
+                        android:src="@drawable/ic_volume_up_black_24dp" />
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:layout_width="wrap_content"
                     android:layout_height="56dp"
                     android:layout_weight="1"
-                    android:background="@android:color/transparent"
-                    android:src="@drawable/ic_shuffle_black_24dp" />
+                    android:gravity="center">
 
-                <ImageButton
-                    android:layout_width="56dp"
+                    <ImageButton
+                        android:id="@+id/bottom_sheet_control_shuffle"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="@drawable/item_bg_transparent"
+                        android:src="@drawable/ic_shuffle_black_24dp" />
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:layout_width="wrap_content"
                     android:layout_height="56dp"
                     android:layout_weight="1"
-                    android:background="@android:color/transparent"
-                    android:src="@drawable/ic_repeat_black_24dp" />
+                    android:gravity="center">
 
-                <ImageButton
-                    android:layout_width="56dp"
+                    <ImageButton
+                        android:id="@+id/bottom_sheet_control_repeat"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="@drawable/item_bg_transparent"
+                        android:src="@drawable/ic_repeat_black_24dp" />
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:layout_width="wrap_content"
                     android:layout_height="56dp"
                     android:layout_weight="1"
-                    android:background="@android:color/transparent"
-                    android:src="@drawable/ic_more_vert_black_24dp" />
+                    android:gravity="center">
 
+                    <ImageButton
+                        android:id="@+id/bottom_sheet_control_menu"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="@drawable/item_bg_transparent"
+                        android:src="@drawable/ic_more_vert_black_24dp" />
+                </RelativeLayout>
             </LinearLayout>
+
+            <io.codetail.widget.RevealFrameLayout
+                android:id="@+id/reveal_seek_bar_volume"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_alignParentBottom="true"
+                android:background="@color/white"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/container_seek_bar_volume"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="invisible">
+
+                    <ImageButton
+                        android:id="@+id/container_seek_bar_volume_close"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_marginLeft="16dp"
+                        android:layout_marginStart="16dp"
+                        android:background="@drawable/item_bg_transparent"
+                        android:src="@drawable/ic_close_black_24dp" />
+
+                    <android.support.v7.widget.AppCompatSeekBar
+                        android:id="@+id/seek_bar_volume"
+                        android:layout_width="match_parent"
+                        android:layout_height="30dp"
+                        android:layout_margin="16dp"
+                        android:max="100"
+                        android:paddingLeft="8dp"
+                        android:paddingRight="8dp"
+                        android:paddingTop="0dp"
+                        android:progress="100"
+                        app:theme="@style/AppTheme.SeekBar.Accent" />
+                </LinearLayout>
+            </io.codetail.widget.RevealFrameLayout>
 
         </RelativeLayout>
     </LinearLayout>

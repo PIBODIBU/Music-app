@@ -15,6 +15,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.BottomSheetBehavior;
 import android.support.design.widget.CoordinatorLayout;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.AppCompatSeekBar;
 import android.support.v7.widget.DefaultItemAnimator;
@@ -25,8 +26,14 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.ListView;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.SeekBar;
+import android.widget.TextView;
+
+import com.android.simplemusic.Support.AnimationSupport;
+import com.bumptech.glide.Glide;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,25 +43,65 @@ import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import io.codetail.widget.RevealFrameLayout;
 import me.zhanghai.android.materialprogressbar.MaterialProgressBar;
 
 public class TestActivity extends AppCompatActivity {
 
     private final String TAG = getClass().getSimpleName();
 
+    private AudioManager audioManager;
     private NotificationManager notificationManager;
     private static final int NOTIFY_ID = 1;
 
+    /**
+     * View declaration
+     */
     private Toolbar toolbar;
     private CoordinatorLayout rootView;
+
+    // Bottom Bar
+    private RelativeLayout RLopenBar;
+
+    private MaterialProgressBar PBsongBar;
+
+    private ImageButton IBplayStopBar;
+
+    private TextView TVsongTitleBar;
+    private TextView TVsongSubtitleBar;
+
+    // Bottom Sheet Views
     private View bottomSheetFrame;
-    private AppCompatSeekBar seekBar;
-    private MaterialProgressBar progressBar;
+
+    private AppCompatSeekBar SBsongPosition;
+    private AppCompatSeekBar SBvolume;
+
+    private TextView TVtimeStampCurrent;
+    private TextView TVtimeStampDuration;
+
+    private TextView TVsongTitle;
+    private TextView TVsongSubtitle;
+
+    private ImageButton IBplayStop;
+    private ImageButton IBrewindForward;
+    private ImageButton IBrewindBack;
+    private ImageButton IBnext;
+    private ImageButton IBprevious;
+
+    private ImageButton IBconrolVolume;
+    private ImageButton IBconrolShuffle;
+    private ImageButton IBconrolRepeat;
+    private ImageButton IBconrolMenu;
+
+    private RevealFrameLayout RFLcontainerSBvolume;
+    private LinearLayout LLcontainerSBvolume;
+    private ImageButton IBcontainerClose;
+
+    /***/
 
     private RecyclerView recyclerView;
     private RecyclerView.LayoutManager layoutManager;
     private RecyclerViewAdapter songAdapter;
-    private ListView songView;
     private ArrayList<Song> songs;
 
     private MediaPlayer mediaPlayer;
@@ -65,6 +112,7 @@ public class TestActivity extends AppCompatActivity {
     private String songTitle = "";
     private int songPosition;
     private boolean shuffle = false;
+    private boolean paused = false;
 
     private BottomSheetBehavior bottomSheetBehavior;
 
@@ -73,45 +121,27 @@ public class TestActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_test);
 
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-        toolbar = (Toolbar) findViewById(R.id.toolbar);
+        initLayout();
+
         setSupportActionBar(toolbar);
-
-        rootView = (CoordinatorLayout) findViewById(R.id.root_view);
-        seekBar = (AppCompatSeekBar) findViewById(R.id.seek_bar);
-        progressBar = (MaterialProgressBar) findViewById(R.id.progress_bar);
-
         songPosition = 0;
         random = new Random();
-        mediaPlayer = new MediaPlayer();
 
         setUpRecyclerView();
         initMusicPlayer();
         initBottomSheet();
+    }
 
-        progressBar.setMax(100);
-        progressBar.setProgress(50);
-
-        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (fromUser) {
-                    seek(progress);
-                    Log.d(TAG, "onProgressChanged() -> User changed progress" +
-                            "\nProgress: " + progress
-                    );
-                }
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-            }
-        });
+    @Override
+    public void onBackPressed() {
+        if (bottomSheetBehavior.getState() == BottomSheetBehavior.STATE_EXPANDED) {
+            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
+        } else {
+            super.onBackPressed();
+        }
     }
 
     @Override
@@ -141,14 +171,189 @@ public class TestActivity extends AppCompatActivity {
     }
 
     public void songClicked(int position) {
-        this.songPosition = position;
+        setSong(position);
         playSong();
+    }
+
+    private void initLayout() {
+        toolbar = (Toolbar) findViewById(R.id.toolbar);
+        rootView = (CoordinatorLayout) findViewById(R.id.root_view);
+        PBsongBar = (MaterialProgressBar) findViewById(R.id.progress_bar);
+
+        // Bottom Bar
+        RLopenBar = (RelativeLayout) findViewById(R.id.bottom_bar_open);
+        RLopenBar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+            }
+        });
+
+        TVsongTitleBar = (TextView) findViewById(R.id.bottom_bar_song_title);
+        TVsongSubtitleBar = (TextView) findViewById(R.id.bottom_bar_song_subtitle);
+
+        TVsongTitleBar.setSelected(true);
+        TVsongSubtitleBar.setSelected(true);
+
+        IBplayStopBar = (ImageButton) findViewById(R.id.bottom_bar_play_stop);
+        IBplayStopBar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (paused) {
+                    setPauseState(false);
+                } else {
+                    setPauseState(true);
+                }
+            }
+        });
+
+        // Bottom Sheet controls
+        SBsongPosition = (AppCompatSeekBar) findViewById(R.id.seek_bar);
+        SBsongPosition.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) {
+                    seek(progress);
+                    Log.d(TAG, "onProgressChanged() -> User changed progress" +
+                            "\nProgress: " + progress
+                    );
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+        });
+
+        TVtimeStampCurrent = (TextView) findViewById(R.id.time_stamp_current);
+        TVtimeStampDuration = (TextView) findViewById(R.id.time_stamp_duration);
+
+        TVsongTitle = (TextView) findViewById(R.id.bottom_sheet_song_title);
+        TVsongSubtitle = (TextView) findViewById(R.id.bottom_sheet_song_subtitle);
+
+        IBplayStop = (ImageButton) findViewById(R.id.bottom_sheet_play_stop);
+        IBrewindForward = (ImageButton) findViewById(R.id.bottom_sheet_rewind_forward);
+        IBrewindBack = (ImageButton) findViewById(R.id.bottom_sheet_rewind_back);
+        IBnext = (ImageButton) findViewById(R.id.bottom_sheet_next);
+        IBprevious = (ImageButton) findViewById(R.id.bottom_sheet_previous);
+
+        LLcontainerSBvolume = (LinearLayout) findViewById(R.id.container_seek_bar_volume);
+        RFLcontainerSBvolume = (RevealFrameLayout) findViewById(R.id.reveal_seek_bar_volume);
+        IBcontainerClose = (ImageButton) findViewById(R.id.container_seek_bar_volume_close);
+
+        IBcontainerClose.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AnimationSupport.Reveal.closeToLeft(LLcontainerSBvolume, new AnimationSupport.Reveal.AnimationAction() {
+                    @Override
+                    public void onPrepare() {
+                    }
+
+                    @Override
+                    public void onStart() {
+                        RFLcontainerSBvolume.setVisibility(View.GONE);
+                    }
+                });
+            }
+        });
+
+        TVsongTitle.setSelected(true);
+        TVsongSubtitle.setSelected(true);
+
+        IBplayStop.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (paused) {
+                    setPauseState(false);
+                } else {
+                    setPauseState(true);
+                }
+            }
+        });
+        IBnext.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                playNext();
+            }
+        });
+        IBprevious.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                playPrevious();
+            }
+        });
+        IBrewindForward.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                rewindForward(5);
+            }
+        });
+        IBrewindBack.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                rewindBack(5);
+            }
+        });
+
+        IBconrolVolume = (ImageButton) findViewById(R.id.bottom_sheet_control_volume);
+        IBconrolVolume.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AnimationSupport.Reveal.openFromLeft(LLcontainerSBvolume, new AnimationSupport.Reveal.AnimationAction() {
+                    @Override
+                    public void onPrepare() {
+                        RFLcontainerSBvolume.setVisibility(View.VISIBLE);
+                    }
+
+                    @Override
+                    public void onStart() {
+                    }
+                });
+            }
+        });
+
+        SBvolume = (AppCompatSeekBar) findViewById(R.id.seek_bar_volume);
+        SBvolume.setMax(audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
+        SBvolume.setProgress(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
+        if (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0) {
+            IBconrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_off_black_24dp));
+        } else {
+            IBconrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_up_black_24dp));
+        }
+        SBvolume.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                Log.d(TAG, "Volume SeekBar: " + progress);
+
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, progress, 0);
+
+                if (progress == 0) {
+                    IBconrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_off_black_24dp));
+                } else {
+                    IBconrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_up_black_24dp));
+
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
     }
 
     private void initBottomSheet() {
         bottomSheetFrame = rootView.findViewById(R.id.bottom_sheet);
         bottomSheetBehavior = BottomSheetBehavior.from(bottomSheetFrame);
-        //bottomSheetBehavior.setPeekHeight(100);
 
         bottomSheetBehavior.setBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
             @Override
@@ -257,6 +462,8 @@ public class TestActivity extends AppCompatActivity {
     }
 
     public void initMusicPlayer() {
+        mediaPlayer = new MediaPlayer();
+
         mediaPlayer.setWakeMode(getApplicationContext(), PowerManager.PARTIAL_WAKE_LOCK);
         mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
 
@@ -300,23 +507,19 @@ public class TestActivity extends AppCompatActivity {
     }
 
     public void playSong() {
-        //play
         mediaPlayer.reset();
-        //get song
+
         Song playSong = songs.get(songPosition);
-        //get title
         songTitle = playSong.getTitle();
-        //get id
         long currSong = playSong.getID();
-        //set uri
         Uri trackUri = ContentUris.withAppendedId(
                 android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                 currSong);
 
         try {
             mediaPlayer.setDataSource(getApplicationContext(), trackUri);
-        } catch (Exception e) {
-            Log.e(TAG, "Error setting data source", e);
+        } catch (Exception ex) {
+            Log.e(TAG, "Error setting data source", ex);
         }
 
         try {
@@ -325,18 +528,39 @@ public class TestActivity extends AppCompatActivity {
             Log.e(TAG, "Error setting data source", ex);
         }
 
-        seekBar.setProgress(0);
-        seekBar.setMax(getDuration());
-
-        Log.d(TAG,
-                "Duration: " + getDuration() +
-                        "\nSeekBar max: " + seekBar.getMax()
-        );
-
-        startUpdateTask();
+        startUpdateTask(playSong);
     }
 
-    private void startUpdateTask() {
+    private void setPauseState(boolean isPaused) {
+        if (isPaused) {
+            paused = true;
+            Glide // Bottom Sheet
+                    .with(TestActivity.this)
+                    .load(R.drawable.ic_play_arrow_primary_24dp)
+                    .into(IBplayStop);
+
+            Glide //Bottom Bar
+                    .with(TestActivity.this)
+                    .load(R.drawable.ic_play_arrow_primary_24dp)
+                    .into(IBplayStopBar);
+            pause();
+        } else {
+            paused = false;
+            Glide // Bottom Sheet
+                    .with(TestActivity.this)
+                    .load(R.drawable.ic_pause_primary_24dp)
+                    .into(IBplayStop);
+            Glide // Bottom Bar
+                    .with(TestActivity.this)
+                    .load(R.drawable.ic_pause_primary_24dp)
+                    .into(IBplayStopBar);
+            start();
+        }
+    }
+
+    private void startUpdateTask(Song song) {
+        prepareUpdateTask(song);
+
         if (updateTask != null) {
             updateTask.cancel();
         }
@@ -350,8 +574,11 @@ public class TestActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        seekBar.setProgress(mediaPlayer.getCurrentPosition());
-                        Log.d(TAG, "updateTask -> Current position: " + mediaPlayer.getCurrentPosition());
+                        PBsongBar.setProgress(getCurrentPosition());
+                        SBsongPosition.setProgress(getCurrentPosition());
+                        TVtimeStampCurrent.setText(msToString(getCurrentPosition()));
+
+                        Log.d(TAG, "updateTask -> Current position: " + msToString(getCurrentPosition()));
                     }
                 });
             }
@@ -368,12 +595,36 @@ public class TestActivity extends AppCompatActivity {
             updateTask.cancel();
     }
 
+    private void prepareUpdateTask(Song song) {
+        setPauseState(false);
+
+        Log.d(TAG, "prepareUpdateTask() ->" +
+                "\nArtist: " + song.getArtist() +
+                "\nTitle: " + song.getTitle());
+
+        // Bottom Bar
+        PBsongBar.setProgress(0);
+        PBsongBar.setMax(getDuration());
+
+        TVsongTitleBar.setText(song.getTitle());
+        TVsongSubtitleBar.setText(song.getArtist());
+
+        // Bottom Sheet
+        TVsongTitle.setText(song.getTitle());
+        TVsongSubtitle.setText(song.getArtist());
+
+        TVtimeStampDuration.setText(msToString(getDuration()));
+
+        SBsongPosition.setProgress(0);
+        SBsongPosition.setMax(getDuration());
+    }
+
     /**
-     * Function to convert milliseconds time to
+     * Method for converting milliseconds time to
      * Timer Format
      * Hours:Minutes:Seconds
      */
-    public String milliSecondsToTimer(long milliseconds) {
+    public String msToString(long milliseconds) {
         String finalTimerString = "";
         String secondsString = "";
 
@@ -417,16 +668,28 @@ public class TestActivity extends AppCompatActivity {
         return mediaPlayer.isPlaying();
     }
 
-    public void pausePlayer() {
-        mediaPlayer.pause();
-    }
-
     public void seek(int position) {
         mediaPlayer.seekTo(position);
     }
 
+    public void rewindForward(int interval) {
+        seek(getCurrentPosition() + interval * 1000);
+    }
+
+    public void rewindBack(int interval) {
+        seek(getCurrentPosition() - interval * 1000);
+    }
+
     public void start() {
         mediaPlayer.start();
+    }
+
+    public void pause() {
+        mediaPlayer.pause();
+    }
+
+    public void stop() {
+        mediaPlayer.stop();
     }
 
     public void playPrevious() {

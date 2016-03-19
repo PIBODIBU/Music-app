@@ -100,7 +100,7 @@ public class MainActivity extends AppCompatActivity implements MediaController.M
     }
 
     //user song select
-    public void songPicked(View view) {
+    public void songClicked(View view) {
         musicService.setSong(Integer.parseInt(view.getTag().toString()));
         musicService.playSong();
         if (playbackPaused) {

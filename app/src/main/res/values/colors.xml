@@ -15,7 +15,7 @@
     <color name="bg_white_dark">#ebedf0</color>
 
     <color name="item_selected">#1e3f51b5</color>
-    <color name="item_normal">@android:color/transparent</color>
 
     <color name="primary_20">#143f51b5</color>
+    <color name="primary_40">#283f51b5</color>
 </resources>
