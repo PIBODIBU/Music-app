@@ -2,17 +2,17 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
+        android:id="@+id/debug"
+        android:icon="@drawable/ic_open_in_browser_white_24dp"
+        android:orderInCategory="3"
+        android:title="Debug"
+        app:showAsAction="always" />
+
+    <item
         android:id="@+id/action_shuffle"
         android:icon="@drawable/ic_shuffle_white_24dp"
         android:orderInCategory="1"
         android:title="Перемешать"
-        app:showAsAction="always" />
-
-    <item
-        android:id="@+id/debug"
-        android:icon="@drawable/ic_phonelink_setup_white_24dp"
-        android:orderInCategory="3"
-        android:title="Debug"
         app:showAsAction="always" />
 
     <item

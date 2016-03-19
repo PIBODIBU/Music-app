@@ -9,6 +9,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.KeyEvent;
@@ -155,30 +156,46 @@ public class MainActivity extends AppCompatActivity implements MediaController.M
         return false;
     }
 
-    //method to retrieve song info from device
     public void getSongList() {
-        //query external audio
         ContentResolver musicResolver = getContentResolver();
         Uri musicUri = android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+        Uri albumUri = android.provider.MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI;
+
         Cursor musicCursor = musicResolver.query(musicUri, null, null, null, null);
-        //iterate over results if valid
-        if (musicCursor != null && musicCursor.moveToFirst()) {
-            //get columns
+        Cursor albumCursor = musicResolver.query(albumUri, null, null, null, null);
+
+        if (musicCursor != null && musicCursor.moveToFirst() && albumCursor != null && musicCursor.moveToFirst()) {
             int titleColumn = musicCursor.getColumnIndex
                     (android.provider.MediaStore.Audio.Media.TITLE);
             int idColumn = musicCursor.getColumnIndex
                     (android.provider.MediaStore.Audio.Media._ID);
             int artistColumn = musicCursor.getColumnIndex
                     (android.provider.MediaStore.Audio.Media.ARTIST);
-            //add songs to list
+            int albumArtColumn = albumCursor.getColumnIndex
+                    (android.provider.MediaStore.Audio.Albums.ALBUM_ART);
+
             do {
                 long thisId = musicCursor.getLong(idColumn);
                 String thisTitle = musicCursor.getString(titleColumn);
                 String thisArtist = musicCursor.getString(artistColumn);
-                songList.add(new Song(thisId, thisTitle, thisArtist));
+
+                String albumArt = "";
+                try {
+                    albumCursor.moveToPosition(musicCursor.getPosition());
+                    albumArt = albumCursor.getString(albumArtColumn);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+
+                songList.add(new Song(thisId, thisTitle, thisArtist, albumArt));
             }
             while (musicCursor.moveToNext());
         }
+
+        if (musicCursor != null)
+            musicCursor.close();
+        if (albumCursor != null)
+            albumCursor.close();
     }
 
     @Override

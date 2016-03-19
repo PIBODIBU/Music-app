@@ -27,6 +27,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
@@ -61,6 +62,9 @@ public class TestActivity extends AppCompatActivity {
     private CoordinatorLayout rootView;
 
     // Bottom Bar
+    private RevealFrameLayout RFLbottomBarReveal;
+    private RelativeLayout RLbottomBarContainer;
+
     private RelativeLayout RLopenBar;
 
     private MaterialProgressBar PBsongBar;
@@ -69,6 +73,8 @@ public class TestActivity extends AppCompatActivity {
 
     private TextView TVsongTitleBar;
     private TextView TVsongSubtitleBar;
+
+    private ImageView IValbumArtBar;
 
     // Bottom Sheet Views
     private View bottomSheetFrame;
@@ -81,6 +87,8 @@ public class TestActivity extends AppCompatActivity {
 
     private TextView TVsongTitle;
     private TextView TVsongSubtitle;
+
+    private ImageButton IBcloseSheet;
 
     private ImageButton IBplayStop;
     private ImageButton IBrewindForward;
@@ -96,6 +104,8 @@ public class TestActivity extends AppCompatActivity {
     private RevealFrameLayout RFLcontainerSBvolume;
     private LinearLayout LLcontainerSBvolume;
     private ImageButton IBcontainerClose;
+
+    private ImageView IValbumArt;
 
     /***/
 
@@ -128,7 +138,7 @@ public class TestActivity extends AppCompatActivity {
 
         setSupportActionBar(toolbar);
         songPosition = 0;
-        random = new Random();
+        random = new Random(getRandomSeed());
 
         setUpRecyclerView();
         initMusicPlayer();
@@ -146,7 +156,7 @@ public class TestActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main, menu);
+        getMenuInflater().inflate(R.menu.test, menu);
         return true;
     }
 
@@ -154,11 +164,7 @@ public class TestActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.action_shuffle:
-                setShuffle();
-                if (getShuffle())
-                    item.setIcon(R.drawable.ic_shuffle_teal_24dp);
-                else
-                    item.setIcon(R.drawable.ic_shuffle_white_24dp);
+                shuffleSongList();
                 break;
             case R.id.action_end:
                 System.exit(0);
@@ -171,6 +177,19 @@ public class TestActivity extends AppCompatActivity {
     }
 
     public void songClicked(int position) {
+        if (RFLbottomBarReveal.getVisibility() == View.GONE) {
+            AnimationSupport.Reveal.openFromLeft(RLbottomBarContainer, new AnimationSupport.Reveal.AnimationAction() {
+                @Override
+                public void onPrepare() {
+                    RFLbottomBarReveal.setVisibility(View.VISIBLE);
+                }
+
+                @Override
+                public void onStart() {
+
+                }
+            });
+        }
         setSong(position);
         playSong();
     }
@@ -181,6 +200,10 @@ public class TestActivity extends AppCompatActivity {
         PBsongBar = (MaterialProgressBar) findViewById(R.id.progress_bar);
 
         // Bottom Bar
+        RFLbottomBarReveal = (RevealFrameLayout) findViewById(R.id.bottom_bar_reveal);
+        RLbottomBarContainer = (RelativeLayout) findViewById(R.id.bottom_bar_container);
+
+        IValbumArtBar = (ImageView) findViewById(R.id.bottom_bar_album_art);
         RLopenBar = (RelativeLayout) findViewById(R.id.bottom_bar_open);
         RLopenBar.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -208,6 +231,7 @@ public class TestActivity extends AppCompatActivity {
         });
 
         // Bottom Sheet controls
+        IValbumArt = (ImageView) findViewById(R.id.bottom_sheet_album_art);
         SBsongPosition = (AppCompatSeekBar) findViewById(R.id.seek_bar);
         SBsongPosition.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -235,6 +259,14 @@ public class TestActivity extends AppCompatActivity {
         TVsongTitle = (TextView) findViewById(R.id.bottom_sheet_song_title);
         TVsongSubtitle = (TextView) findViewById(R.id.bottom_sheet_song_subtitle);
 
+        IBcloseSheet = (ImageButton) findViewById(R.id.bottom_sheet_close);
+        IBcloseSheet.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
+            }
+        });
+
         IBplayStop = (ImageButton) findViewById(R.id.bottom_sheet_play_stop);
         IBrewindForward = (ImageButton) findViewById(R.id.bottom_sheet_rewind_forward);
         IBrewindBack = (ImageButton) findViewById(R.id.bottom_sheet_rewind_back);
@@ -248,7 +280,7 @@ public class TestActivity extends AppCompatActivity {
         IBcontainerClose.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                AnimationSupport.Reveal.closeToLeft(LLcontainerSBvolume, new AnimationSupport.Reveal.AnimationAction() {
+                /*AnimationSupport.Reveal.closeToLeft(LLcontainerSBvolume, new AnimationSupport.Reveal.AnimationAction() {
                     @Override
                     public void onPrepare() {
                     }
@@ -257,7 +289,9 @@ public class TestActivity extends AppCompatActivity {
                     public void onStart() {
                         RFLcontainerSBvolume.setVisibility(View.GONE);
                     }
-                });
+                });*/
+
+                RFLcontainerSBvolume.setVisibility(View.GONE);
             }
         });
 
@@ -299,11 +333,20 @@ public class TestActivity extends AppCompatActivity {
             }
         });
 
+        IBconrolShuffle = (ImageButton) findViewById(R.id.bottom_sheet_control_shuffle);
+        IBconrolShuffle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                toggleShuffleState();
+            }
+        });
+
         IBconrolVolume = (ImageButton) findViewById(R.id.bottom_sheet_control_volume);
         IBconrolVolume.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                AnimationSupport.Reveal.openFromLeft(LLcontainerSBvolume, new AnimationSupport.Reveal.AnimationAction() {
+                RFLcontainerSBvolume.setVisibility(View.VISIBLE);
+                /*AnimationSupport.Reveal.openFromLeft(LLcontainerSBvolume, new AnimationSupport.Reveal.AnimationAction() {
                     @Override
                     public void onPrepare() {
                         RFLcontainerSBvolume.setVisibility(View.VISIBLE);
@@ -312,13 +355,18 @@ public class TestActivity extends AppCompatActivity {
                     @Override
                     public void onStart() {
                     }
-                });
+                });*/
             }
         });
 
         SBvolume = (AppCompatSeekBar) findViewById(R.id.seek_bar_volume);
         SBvolume.setMax(audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
         SBvolume.setProgress(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
+
+        Log.d(TAG, "System -> " +
+                "\nVolume max: " + audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) +
+                "\nVolume current: " + (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)));
+
         if (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0) {
             IBconrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_off_black_24dp));
         } else {
@@ -432,33 +480,55 @@ public class TestActivity extends AppCompatActivity {
         });
     }
 
-    private void getSongList() {
-        //query external audio
+    private void shuffleSongList() {
+        Collections.shuffle(songs, new Random(getRandomSeed()));
+        songAdapter.notifyDataSetChanged();
+    }
+
+    private long getRandomSeed() {
+        return System.currentTimeMillis();
+    }
+
+    public void getSongList() {
         ContentResolver musicResolver = getContentResolver();
         Uri musicUri = android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+        Uri albumUri = android.provider.MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI;
+
         Cursor musicCursor = musicResolver.query(musicUri, null, null, null, null);
-        //iterate over results if valid
-        if (musicCursor != null && musicCursor.moveToFirst()) {
-            //get columns
+        Cursor albumCursor = musicResolver.query(albumUri, null, null, null, null);
+
+        if (musicCursor != null && musicCursor.moveToFirst() && albumCursor != null && musicCursor.moveToFirst()) {
             int titleColumn = musicCursor.getColumnIndex
                     (android.provider.MediaStore.Audio.Media.TITLE);
             int idColumn = musicCursor.getColumnIndex
                     (android.provider.MediaStore.Audio.Media._ID);
             int artistColumn = musicCursor.getColumnIndex
                     (android.provider.MediaStore.Audio.Media.ARTIST);
-            //add songs to list
+            int albumArtColumn = albumCursor.getColumnIndex
+                    (android.provider.MediaStore.Audio.Albums.ALBUM_ART);
+
             do {
                 long thisId = musicCursor.getLong(idColumn);
                 String thisTitle = musicCursor.getString(titleColumn);
                 String thisArtist = musicCursor.getString(artistColumn);
-                songs.add(new Song(thisId, thisTitle, thisArtist));
+
+                String albumArt = "";
+                try {
+                    albumCursor.moveToPosition(musicCursor.getPosition());
+                    albumArt = albumCursor.getString(albumArtColumn);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+
+                songs.add(new Song(thisId, thisTitle, thisArtist, albumArt));
             }
             while (musicCursor.moveToNext());
         }
 
-        if (musicCursor != null) {
+        if (musicCursor != null)
             musicCursor.close();
-        }
+        if (albumCursor != null)
+            albumCursor.close();
     }
 
     public void initMusicPlayer() {
@@ -499,9 +569,9 @@ public class TestActivity extends AppCompatActivity {
         mediaPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
             @Override
             public boolean onError(MediaPlayer mediaPlayer, int what, int extra) {
-                Log.e(TAG, "Playback Error");
+                Log.e(TAG, "Playback Error: " + extra);
                 mediaPlayer.reset();
-                return false;
+                return true;
             }
         });
     }
@@ -532,6 +602,7 @@ public class TestActivity extends AppCompatActivity {
     }
 
     private void setPauseState(boolean isPaused) {
+        Log.d(TAG, "setPauseState() -> " + isPaused);
         if (isPaused) {
             paused = true;
             Glide // Bottom Sheet
@@ -559,6 +630,8 @@ public class TestActivity extends AppCompatActivity {
     }
 
     private void startUpdateTask(Song song) {
+        setPauseState(false);
+
         prepareUpdateTask(song);
 
         if (updateTask != null) {
@@ -596,13 +669,28 @@ public class TestActivity extends AppCompatActivity {
     }
 
     private void prepareUpdateTask(Song song) {
-        setPauseState(false);
-
         Log.d(TAG, "prepareUpdateTask() ->" +
                 "\nArtist: " + song.getArtist() +
                 "\nTitle: " + song.getTitle());
 
         // Bottom Bar
+        IValbumArtBar.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+
+        try {
+            if (song.getAlbumArt().equalsIgnoreCase("")) {
+                IValbumArtBar.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_music_note_primary_100_24dp));
+            } else {
+                Glide
+                        .with(this)
+                        .load(song.getAlbumArt())
+                        .centerCrop()
+                        .into(IValbumArtBar);
+            }
+        } catch (NullPointerException ex) {
+            ex.printStackTrace();
+            IValbumArtBar.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_music_note_primary_100_24dp));
+        }
+
         PBsongBar.setProgress(0);
         PBsongBar.setMax(getDuration());
 
@@ -610,6 +698,30 @@ public class TestActivity extends AppCompatActivity {
         TVsongSubtitleBar.setText(song.getArtist());
 
         // Bottom Sheet
+        IValbumArt.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+
+        try {
+            if (song.getAlbumArt().equalsIgnoreCase("")) {
+                Glide
+                        .with(this)
+                        .load(R.drawable.ic_music_note_primary_100_100dp)
+                        .into(IValbumArt);
+            } else {
+                Glide
+                        .with(this)
+                        .load(song.getAlbumArt())
+                        .centerCrop()
+                        .into(IValbumArt);
+            }
+        } catch (NullPointerException ex) {
+            ex.printStackTrace();
+
+            Glide
+                    .with(this)
+                    .load(R.drawable.ic_music_note_primary_100_100dp)
+                    .into(IValbumArt);
+        }
+
         TVsongTitle.setText(song.getTitle());
         TVsongSubtitle.setText(song.getArtist());
 
@@ -724,12 +836,26 @@ public class TestActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
-    public void setShuffle() {
-        if (shuffle)
-            shuffle = false;
-        else
-            shuffle = true;
+    public void toggleShuffleState() {
+        if (shuffle) {
+            setShuffleOff();
+        } else {
+            setShuffleOn();
+        }
     }
+
+    private void setShuffleOn() {
+        shuffle = true;
+
+        IBconrolShuffle.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_shuffle_primary_24dp));
+    }
+
+    private void setShuffleOff() {
+        shuffle = false;
+
+        IBconrolShuffle.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_shuffle_black_24dp));
+    }
+
 
     public boolean getShuffle() {
         return shuffle;

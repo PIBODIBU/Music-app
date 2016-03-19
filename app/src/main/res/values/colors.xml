@@ -18,4 +18,5 @@
 
     <color name="primary_20">#143f51b5</color>
     <color name="primary_40">#283f51b5</color>
+    <color name="primary_100">#643f51b5</color>
 </resources>

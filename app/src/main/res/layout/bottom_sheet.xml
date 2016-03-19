@@ -19,16 +19,30 @@
             android:layout_height="wrap_content">
 
             <ImageView
-                android:id="@+id/song_image"
+                android:id="@+id/bottom_sheet_album_art"
                 android:layout_width="match_parent"
                 android:layout_height="300dp"
-                android:background="@color/black_20" />
+                android:background="@color/black_20"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_music_note_primary_100_100dp" />
+
+            <ImageButton
+                android:id="@+id/bottom_sheet_close"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentStart="true"
+                android:layout_alignParentTop="true"
+                android:layout_margin="16dp"
+                android:background="@drawable/shape_circle_white"
+                android:scaleType="fitXY"
+                android:src="@drawable/ic_keyboard_arrow_down_primary_24dp" />
 
             <android.support.v7.widget.AppCompatSeekBar
                 android:id="@+id/seek_bar"
                 android:layout_width="match_parent"
                 android:layout_height="30dp"
-                android:layout_below="@id/song_image"
+                android:layout_below="@id/bottom_sheet_album_art"
                 android:layout_marginTop="-15dp"
                 android:background="@android:color/transparent"
                 android:paddingLeft="0dp"
@@ -252,7 +266,7 @@
                     android:layout_height="match_parent"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
-                    android:visibility="invisible">
+                    android:visibility="visible">
 
                     <ImageButton
                         android:id="@+id/container_seek_bar_volume_close"
