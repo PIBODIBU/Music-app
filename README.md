@@ -1,5 +1,5 @@
 # Music app
-Simple Material Design music app. Works on pre-Lollipop as well as on Lollipop. This repository is public, anyone can contribute. 
+**Simple Material Design music app. Works on pre-Lollipop as well as on Lollipop. This repository is public, anyone can contribute.** 
 
 Min SDK version: 16
 
@@ -20,6 +20,6 @@ Dependencies:
     compile 'com.github.bumptech.glide:glide:3.7.0'
     compile 'com.squareup.picasso:picasso:2.5.2'
 ```
-**Screenshots:**
+#Screenshots:
 
 ![alt tag](https://github.com/PIBODIBU/Music-app/blob/master/Screenshots/3.png)
