@@ -26,7 +26,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="?attr/actionBarSize"
-        android:background="@color/bg_white_dark" />
+        android:background="@color/bg_white_dark"
+        android:scrollbars="vertical" />
 
 
     <io.codetail.widget.RevealFrameLayout

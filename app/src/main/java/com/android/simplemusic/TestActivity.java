@@ -4,17 +4,21 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
+import android.content.Intent;
 import android.database.Cursor;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.PowerManager;
+import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.BottomSheetBehavior;
@@ -61,6 +65,7 @@ public class TestActivity extends AppCompatActivity {
     private ClipboardManager clipboardManager;
     private static AudioManager audioManager;
     private NotificationManager notificationManager;
+    private Notification notification;
     private static final int NOTIFY_ID = 1;
 
     /**
@@ -108,14 +113,7 @@ public class TestActivity extends AppCompatActivity {
     private ImageButton IBcontrolRepeat;
     private ImageButton IBcontrolMenu;
 
-
     private ImageView IValbumArt;
-
-    // Bottom Sheet Volume Views
-
-    private ImageButton IBsheetVolumeClose;
-    private AppCompatSeekBar SBsheetVolume;
-
 
     /***/
 
@@ -134,10 +132,16 @@ public class TestActivity extends AppCompatActivity {
 
     private int rewindLenght = 5;
     private boolean shuffle = false;
-    private boolean paused = false;
+    private boolean paused = true;
     private boolean repeat = false;
 
     private BottomSheetBehavior bottomSheetBehavior;
+
+
+    // Save instance
+    private final String TAG_SONG_ID = "SONG_ID";
+    private final String TAG_POSITION = "POSITION";
+    private final String TAG_PAUSE_STATE = "PAUSE_STATE";
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -158,6 +162,51 @@ public class TestActivity extends AppCompatActivity {
         setUpRecyclerView();
         initMusicPlayer();
         checkMute();
+
+        if (savedInstanceState != null) {
+            setSongPosition(savedInstanceState.getInt(TAG_SONG_ID, 0));
+            playSong();
+            seek(savedInstanceState.getInt(TAG_POSITION, 0));
+
+            RFLbottomBarReveal.setVisibility(View.VISIBLE);
+            RLbottomBarContainer.setVisibility(View.VISIBLE);
+
+            if (savedInstanceState.getBoolean(TAG_PAUSE_STATE, false)) {
+                Handler handler = new Handler();
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        setPauseState(true);
+                    }
+                }, 50);
+            }
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putInt(TAG_POSITION, getCurrentPosition());
+        outState.putInt(TAG_SONG_ID, getSongPosition());
+        outState.putBoolean(TAG_PAUSE_STATE, paused);
+
+        super.onSaveInstanceState(outState);
+    }
+
+    /**
+     * Find {@link Song} by its {@link android.provider.MediaStore.Audio.Media._ID}
+     *
+     * @param id id of Song to find
+     * @return Instance of Song from ArrayList.
+     * If found - found instance
+     * If not found - first item from ArrayList
+     */
+    private Song findSongByID(ArrayList<Song> arrayList, long id) {
+        for (Song song : arrayList) {
+            if (song.getID() == id) {
+                return song;
+            }
+        }
+        return songs.get(0);
     }
 
     @Override
@@ -192,6 +241,12 @@ public class TestActivity extends AppCompatActivity {
     }
 
     public void songClicked(int position) {
+        openBottomBar();
+        setSongPosition(position);
+        playSong();
+    }
+
+    private void openBottomBar() {
         if (RFLbottomBarReveal.getVisibility() == View.GONE) {
             AnimationSupport.Reveal.openFromLeft(RLbottomBarContainer, new AnimationSupport.Reveal.AnimationAction() {
                 @Override
@@ -205,8 +260,6 @@ public class TestActivity extends AppCompatActivity {
                 }
             });
         }
-        setSong(position);
-        playSong();
     }
 
     private void initLayout() {
@@ -248,6 +301,7 @@ public class TestActivity extends AppCompatActivity {
 
         // Bottom Sheet Primary
         IValbumArt = (ImageView) findViewById(R.id.bottom_sheet_album_art);
+
         SBsongPosition = (AppCompatSeekBar) findViewById(R.id.seek_bar);
         SBsongPosition.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -447,7 +501,7 @@ public class TestActivity extends AppCompatActivity {
 
         songs = new ArrayList<>();
         layoutManager = new LinearLayoutManager(this);
-        songAdapter = new RecyclerViewAdapter(songs);
+        songAdapter = new RecyclerViewAdapter(this, songs);
 
         recyclerView.setHasFixedSize(true);
         recyclerView.setLayoutManager(layoutManager);
@@ -485,30 +539,30 @@ public class TestActivity extends AppCompatActivity {
     public void getSongList() {
         ContentResolver musicResolver = getContentResolver();
         Uri musicUri = android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
-        Uri albumUri = android.provider.MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI;
+        Uri artworkUri = Uri.parse("content://media/external/audio/albumart");
 
         Cursor musicCursor = musicResolver.query(musicUri, null, null, null, null);
-        Cursor albumCursor = musicResolver.query(albumUri, null, null, null, null);
 
-        if (musicCursor != null && musicCursor.moveToFirst() && albumCursor != null && musicCursor.moveToFirst()) {
+        if (musicCursor != null && musicCursor.moveToFirst()) {
             int titleColumn = musicCursor.getColumnIndex
-                    (android.provider.MediaStore.Audio.Media.TITLE);
+                    (MediaStore.Audio.Media.TITLE);
             int idColumn = musicCursor.getColumnIndex
-                    (android.provider.MediaStore.Audio.Media._ID);
+                    (MediaStore.Audio.Media._ID);
             int artistColumn = musicCursor.getColumnIndex
-                    (android.provider.MediaStore.Audio.Media.ARTIST);
-            int albumArtColumn = albumCursor.getColumnIndex
-                    (android.provider.MediaStore.Audio.Albums.ALBUM_ART);
+                    (MediaStore.Audio.Media.ARTIST);
+            int albumIdColumn = musicCursor.getColumnIndex
+                    (MediaStore.Audio.Media.ALBUM_ID);
 
             do {
                 long thisId = musicCursor.getLong(idColumn);
                 String thisTitle = musicCursor.getString(titleColumn);
                 String thisArtist = musicCursor.getString(artistColumn);
-
+                long albumId = musicCursor.getLong(albumIdColumn);
                 String albumArt = "";
+
                 try {
-                    albumCursor.moveToPosition(musicCursor.getPosition());
-                    albumArt = albumCursor.getString(albumArtColumn);
+                    albumArt = (ContentUris.withAppendedId(artworkUri, albumId)).toString();
+                    Log.d(TAG, "TEST Album art: " + albumArt);
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }
@@ -520,8 +574,6 @@ public class TestActivity extends AppCompatActivity {
 
         if (musicCursor != null)
             musicCursor.close();
-        if (albumCursor != null)
-            albumCursor.close();
     }
 
     public void initMusicPlayer() {
@@ -533,20 +585,11 @@ public class TestActivity extends AppCompatActivity {
         mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
             @Override
             public void onPrepared(MediaPlayer mediaPlayer) {
-                //start playback
+                // Start playback
                 mediaPlayer.start();
 
-                //notification
-                Notification.Builder builder = new Notification.Builder(TestActivity.this);
-
-                builder
-                        .setSmallIcon(R.drawable.ic_play_arrow_white_24dp)
-                        .setTicker(songTitle)
-                        .setOngoing(true)
-                        .setContentTitle("Playing")
-                        .setContentText(songTitle);
-                Notification notification = builder.build();
-                notificationManager.notify(NOTIFY_ID, notification);
+                // Notification
+                makeNotification(R.drawable.ic_play_arrow_white_24dp);
             }
         });
         mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
@@ -573,12 +616,39 @@ public class TestActivity extends AppCompatActivity {
         });
     }
 
+    private void makeNotification(int icon) {
+        if (notification != null) {
+            notificationManager.cancel(NOTIFY_ID);
+        }
+
+        Intent notificationIntent = new Intent(TestActivity.this, TestActivity.class);
+        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent intent = PendingIntent.getActivity(TestActivity.this, 0, notificationIntent, 0);
+
+        Notification.Builder builder = new Notification.Builder(TestActivity.this);
+
+        builder
+                .setSmallIcon(icon)
+                .setTicker(songTitle)
+                .setOngoing(true)
+                .setContentIntent(intent)
+                .setContentTitle("Playing")
+                .setContentText(songTitle);
+
+        notification = builder.build();
+        notification.flags |= Notification.FLAG_AUTO_CANCEL;
+
+        notificationManager.notify(NOTIFY_ID, notification);
+    }
+
     public void playSong() {
         mediaPlayer.reset();
 
-        Song playSong = songs.get(songPosition);
+        Song playSong = songs.get(getSongPosition());
+
         songTitle = playSong.getTitle();
         long currSong = playSong.getID();
+
         Uri trackUri = ContentUris.withAppendedId(
                 android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                 currSong);
@@ -640,7 +710,9 @@ public class TestActivity extends AppCompatActivity {
     private void prepareUpdateTask(Song song) {
         Log.d(TAG, "prepareUpdateTask() ->" +
                 "\nArtist: " + song.getArtist() +
-                "\nTitle: " + song.getTitle());
+                "\nTitle: " + song.getTitle() +
+                "\nAlbum art Uri: " + song.getAlbumArt()
+        );
 
         // Bottom Bar
         IValbumArtBar.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
@@ -652,6 +724,7 @@ public class TestActivity extends AppCompatActivity {
                 Glide
                         .with(this)
                         .load(song.getAlbumArt())
+                        .crossFade()
                         .centerCrop()
                         .into(IValbumArtBar);
             }
@@ -671,24 +744,20 @@ public class TestActivity extends AppCompatActivity {
 
         try {
             if (song.getAlbumArt().equalsIgnoreCase("")) {
-                Glide
-                        .with(this)
-                        .load(R.drawable.ic_music_note_primary_100_100dp)
-                        .into(IValbumArt);
+                IValbumArt.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_music_note_primary_100_100dp));
+
             } else {
                 Glide
                         .with(this)
                         .load(song.getAlbumArt())
-                        .centerCrop()
+                        .fitCenter()
                         .into(IValbumArt);
             }
         } catch (NullPointerException ex) {
             ex.printStackTrace();
 
-            Glide
-                    .with(this)
-                    .load(R.drawable.ic_music_note_primary_100_100dp)
-                    .into(IValbumArt);
+            IValbumArt.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_music_note_primary_100_100dp));
+
         }
 
         TVsongTitle.setText(song.getTitle());
@@ -732,8 +801,12 @@ public class TestActivity extends AppCompatActivity {
     }
 
     //set the song
-    public void setSong(int songIndex) {
+    private void setSongPosition(int songIndex) {
         songPosition = songIndex;
+    }
+
+    private int getSongPosition() {
+        return songPosition;
     }
 
     //playback methods
@@ -807,6 +880,8 @@ public class TestActivity extends AppCompatActivity {
                     .with(TestActivity.this)
                     .load(R.drawable.ic_play_arrow_primary_24dp)
                     .into(IBplayStopBar);
+
+            makeNotification(R.drawable.ic_pause_white_24dp);
             pause();
         } else {
             paused = false;
@@ -818,6 +893,7 @@ public class TestActivity extends AppCompatActivity {
                     .with(TestActivity.this)
                     .load(R.drawable.ic_pause_primary_24dp)
                     .into(IBplayStopBar);
+            makeNotification(R.drawable.ic_play_arrow_white_24dp);
             start();
         }
     }
