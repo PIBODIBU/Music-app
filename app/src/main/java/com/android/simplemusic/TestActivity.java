@@ -4,14 +4,11 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.app.Notification;
 import android.app.NotificationManager;
-import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.database.Cursor;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -21,8 +18,8 @@ import android.os.PowerManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.BottomSheetBehavior;
+import android.support.design.widget.BottomSheetDialogFragment;
 import android.support.design.widget.CoordinatorLayout;
-import android.support.design.widget.Snackbar;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
@@ -34,21 +31,17 @@ import android.support.v7.widget.PopupMenu;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
 import com.android.simplemusic.Support.AnimationSupport;
 import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.engine.Resource;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -65,9 +58,8 @@ public class TestActivity extends AppCompatActivity {
 
     private final String TAG = getClass().getSimpleName();
 
-    private MusicIntentReceiver musicIntentReceiver;
     private ClipboardManager clipboardManager;
-    private AudioManager audioManager;
+    private static AudioManager audioManager;
     private NotificationManager notificationManager;
     private static final int NOTIFY_ID = 1;
 
@@ -92,11 +84,10 @@ public class TestActivity extends AppCompatActivity {
 
     private ImageView IValbumArtBar;
 
-    // Bottom Sheet Views
+    // Bottom Sheet Primary Views
     private View bottomSheetFrame;
 
     private AppCompatSeekBar SBsongPosition;
-    private AppCompatSeekBar SBcontainerVolume;
 
     private TextView TVtimeStampCurrent;
     private TextView TVtimeStampDuration;
@@ -112,16 +103,19 @@ public class TestActivity extends AppCompatActivity {
     private ImageButton IBnext;
     private ImageButton IBprevious;
 
-    private ImageButton IBcontrolVolume;
+    private static ImageButton IBcontrolVolume;
     private ImageButton IBcontrolShuffle;
     private ImageButton IBcontrolRepeat;
     private ImageButton IBcontrolMenu;
 
-    private RevealFrameLayout RFLcontainerSBvolume;
-    private LinearLayout LLcontainerSBvolume;
-    private ImageButton IBcontainerClose;
 
     private ImageView IValbumArt;
+
+    // Bottom Sheet Volume Views
+
+    private ImageButton IBsheetVolumeClose;
+    private AppCompatSeekBar SBsheetVolume;
+
 
     /***/
 
@@ -150,7 +144,6 @@ public class TestActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_test);
 
-        musicIntentReceiver = new MusicIntentReceiver();
         clipboardManager = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
@@ -161,16 +154,10 @@ public class TestActivity extends AppCompatActivity {
         songPosition = 0;
         random = new Random(getRandomSeed());
 
+        initBottomSheet();
         setUpRecyclerView();
         initMusicPlayer();
-        initBottomSheet();
-    }
-
-    @Override
-    protected void onResume() {
-        IntentFilter filter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
-        registerReceiver(musicIntentReceiver, filter);
-        super.onResume();
+        checkMute();
     }
 
     @Override
@@ -225,9 +212,10 @@ public class TestActivity extends AppCompatActivity {
     private void initLayout() {
         toolbar = (Toolbar) findViewById(R.id.toolbar);
         rootView = (CoordinatorLayout) findViewById(R.id.root_view);
-        PBsongBar = (MaterialProgressBar) findViewById(R.id.progress_bar);
 
         // Bottom Bar
+        PBsongBar = (MaterialProgressBar) findViewById(R.id.progress_bar);
+
         RFLbottomBarReveal = (RevealFrameLayout) findViewById(R.id.bottom_bar_reveal);
         RLbottomBarContainer = (RelativeLayout) findViewById(R.id.bottom_bar_container);
 
@@ -258,7 +246,7 @@ public class TestActivity extends AppCompatActivity {
             }
         });
 
-        // Bottom Sheet controls
+        // Bottom Sheet Primary
         IValbumArt = (ImageView) findViewById(R.id.bottom_sheet_album_art);
         SBsongPosition = (AppCompatSeekBar) findViewById(R.id.seek_bar);
         SBsongPosition.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -300,32 +288,6 @@ public class TestActivity extends AppCompatActivity {
         IBrewindBack = (ImageButton) findViewById(R.id.bottom_sheet_rewind_back);
         IBnext = (ImageButton) findViewById(R.id.bottom_sheet_next);
         IBprevious = (ImageButton) findViewById(R.id.bottom_sheet_previous);
-
-        LLcontainerSBvolume = (LinearLayout) findViewById(R.id.container_seek_bar_volume);
-        RFLcontainerSBvolume = (RevealFrameLayout) findViewById(R.id.reveal_seek_bar_volume);
-        IBcontainerClose = (ImageButton) findViewById(R.id.container_seek_bar_volume_close);
-
-        IBcontainerClose.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                /*AnimationSupport.Reveal.closeToLeft(LLcontainerSBvolume, new AnimationSupport.Reveal.AnimationAction() {
-                    @Override
-                    public void onPrepare() {
-                    }
-
-                    @Override
-                    public void onStart() {
-                        RFLcontainerSBvolume.setVisibility(View.GONE);
-                    }
-                });*/
-
-                // Don't touch this
-                SBcontainerVolume.setVisibility(View.GONE);
-                IBcontainerClose.setVisibility(View.GONE);
-
-                LLcontainerSBvolume.setVisibility(View.INVISIBLE);
-            }
-        });
 
         TVsongTitle.setSelected(true);
         TVsongSubtitle.setSelected(true);
@@ -416,65 +378,21 @@ public class TestActivity extends AppCompatActivity {
         IBcontrolVolume.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Don't touch this
-                SBcontainerVolume.setVisibility(View.VISIBLE);
-                IBcontainerClose.setVisibility(View.VISIBLE);
-                LLcontainerSBvolume.setVisibility(View.VISIBLE);
-
-                /*AnimationSupport.Reveal.openFromLeft(LLcontainerSBvolume, new AnimationSupport.Reveal.AnimationAction() {
-                    @Override
-                    public void onPrepare() {
-                        RFLcontainerSBvolume.setVisibility(View.VISIBLE);
-                    }
-
-                    @Override
-                    public void onStart() {
-                    }
-                });*/
+                VolumeBottomSheetDialogFragment volumeDialog = new VolumeBottomSheetDialogFragment();
+                volumeDialog.show(getSupportFragmentManager(), "VolumeDialog");
             }
         });
-
-        SBcontainerVolume = (AppCompatSeekBar) findViewById(R.id.seek_bar_volume);
-        SBcontainerVolume.setMax(audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
-        SBcontainerVolume.setProgress(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
-
-        Log.d(TAG, "System -> " +
-                "\nVolume max: " + audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) +
-                "\nVolume current: " + (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)));
-
-        if (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0) {
-            IBcontrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_off_black_24dp));
-        } else {
-            IBcontrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_up_black_24dp));
-        }
-        SBcontainerVolume.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        IBcontrolVolume.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                Log.d(TAG, "Volume SeekBar: " + progress);
-
-                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, progress, 0);
-
-                if (progress == 0) {
-                    IBcontrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_off_black_24dp));
-                } else {
-                    IBcontrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_up_black_24dp));
-
-                }
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-
+            public boolean onLongClick(View v) {
+                muteAudio();
+                return false;
             }
         });
     }
 
     private void initBottomSheet() {
+        // Bottom Sheet Primary
         bottomSheetFrame = rootView.findViewById(R.id.bottom_sheet);
         bottomSheetBehavior = BottomSheetBehavior.from(bottomSheetFrame);
 
@@ -968,22 +886,185 @@ public class TestActivity extends AppCompatActivity {
         this.rewindLenght = length;
     }
 
-    private class MusicIntentReceiver extends BroadcastReceiver {
+    private void checkMute() {
+        if (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0) {
+            IBcontrolVolume.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_volume_off_black_24dp));
+        } else {
+            IBcontrolVolume.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_volume_up_black_24dp));
+        }
+    }
+
+    private void muteAudio() {
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0);
+        checkMute();
+    }
+
+    public static class VolumeBottomSheetDialogFragment extends BottomSheetDialogFragment {
+        private final String TAG = "VolumeDialog";
+
+        private Activity activity;
+
+
+        private ImageButton IBVolumeMusic;
+        private AppCompatSeekBar SBVolumeMusic;
+
+        private ImageButton IBVolumePhone;
+        private AppCompatSeekBar SBVolumePhone;
+
+        private boolean isMutedMusic = false;
+        private boolean isMutedPhone = false;
+
+        private int musicVolume;
+        private int phoneVolume;
+
         @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getAction().equals(Intent.ACTION_HEADSET_PLUG)) {
-                int state = intent.getIntExtra("state", -1);
-                switch (state) {
-                    case 0:
-                        Snackbar.make(rootView, "Headset is unplugged", Snackbar.LENGTH_SHORT).show();
-                        break;
-                    case 1:
-                        Snackbar.make(rootView, "Headset is plugged", Snackbar.LENGTH_SHORT).show();
-                        break;
-                    default:
-                        Snackbar.make(rootView, "I have no idea what the headset state is", Snackbar.LENGTH_SHORT).show();
+        public void setupDialog(Dialog dialog, int style) {
+            activity = getActivity();
+            View mainView = activity.getLayoutInflater().inflate(R.layout.dialog_volume, null);
+            dialog.setContentView(mainView);
+
+            IBVolumeMusic = (ImageButton) mainView.findViewById(R.id.image_button_volume_music);
+            SBVolumeMusic = (AppCompatSeekBar) mainView.findViewById(R.id.seek_bar_volume_music);
+
+            IBVolumePhone = (ImageButton) mainView.findViewById(R.id.image_button_volume_phone);
+            SBVolumePhone = (AppCompatSeekBar) mainView.findViewById(R.id.seek_bar_volume_phone);
+
+            refreshSeekBars();
+            checkMute();
+
+            // Music block
+            IBVolumeMusic.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    toggleMuteMusic();
                 }
+            });
+            SBVolumeMusic.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    Log.d(TAG, "Volume SeekBar: " + progress);
+
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, progress, 0);
+
+                    if (progress == 0) {
+                        TestActivity.IBcontrolVolume.setImageDrawable(ContextCompat.getDrawable(activity, R.drawable.ic_volume_off_black_24dp));
+                        IBVolumeMusic.setImageDrawable(ContextCompat.getDrawable(activity, R.drawable.ic_volume_off_black_24dp));
+                    } else {
+                        TestActivity.IBcontrolVolume.setImageDrawable(ContextCompat.getDrawable(activity, R.drawable.ic_volume_up_black_24dp));
+                        IBVolumeMusic.setImageDrawable(ContextCompat.getDrawable(activity, R.drawable.ic_volume_up_black_24dp));
+                    }
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {
+                }
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {
+                }
+            });
+
+            // Phone block
+            IBVolumePhone.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    toggleMutePhone();
+                }
+            });
+            SBVolumePhone.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    Log.d(TAG, "Volume SeekBar: " + progress);
+
+                    audioManager.setStreamVolume(AudioManager.STREAM_RING, progress, 0);
+
+                    if (progress == 0) {
+                        IBVolumePhone.setImageDrawable(ContextCompat.getDrawable(activity, R.drawable.ic_vibration_black_24dp));
+                    } else {
+                        IBVolumePhone.setImageDrawable(ContextCompat.getDrawable(activity, R.drawable.ic_phonelink_ring_black_24dp));
+                    }
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {
+                }
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {
+                }
+            });
+
+            super.setupDialog(dialog, style);
+        }
+
+        private void checkMute() {
+            if (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0) {
+                TestActivity.IBcontrolVolume.setImageDrawable(ContextCompat.getDrawable(activity, R.drawable.ic_volume_off_black_24dp));
+
+                IBVolumeMusic.setImageDrawable(ContextCompat.getDrawable(activity, R.drawable.ic_volume_off_black_24dp));
+                SBVolumeMusic.setProgress(0);
+            } else {
+                TestActivity.IBcontrolVolume.setImageDrawable(ContextCompat.getDrawable(activity, R.drawable.ic_volume_up_black_24dp));
+
+                IBVolumeMusic.setImageDrawable(ContextCompat.getDrawable(activity, R.drawable.ic_volume_up_black_24dp));
             }
+
+            if (audioManager.getStreamVolume(AudioManager.STREAM_RING) == 0) {
+                IBVolumePhone.setImageDrawable(ContextCompat.getDrawable(activity, R.drawable.ic_vibration_black_24dp));
+                SBVolumePhone.setProgress(0);
+            } else {
+                IBVolumePhone.setImageDrawable(ContextCompat.getDrawable(activity, R.drawable.ic_phonelink_ring_black_24dp));
+            }
+        }
+
+        private void refreshSeekBars() {
+            SBVolumeMusic.setMax(audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
+            SBVolumeMusic.setProgress(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
+
+            SBVolumePhone.setMax(audioManager.getStreamMaxVolume(AudioManager.STREAM_RING));
+            SBVolumePhone.setProgress(audioManager.getStreamVolume(AudioManager.STREAM_RING));
+        }
+
+        private void toggleMuteMusic() {
+            if (isMutedMusic) {
+                isMutedMusic = false;
+                unmuteMusic();
+            } else {
+                isMutedMusic = true;
+                muteMusic();
+            }
+        }
+
+        private void toggleMutePhone() {
+            if (isMutedPhone) {
+                isMutedPhone = false;
+                unmutePhone();
+            } else {
+                isMutedPhone = true;
+                mutePhone();
+            }
+        }
+
+        private void muteMusic() {
+            musicVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0);
+            checkMute();
+        }
+
+        private void unmuteMusic() {
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, musicVolume, 0);
+            refreshSeekBars();
+        }
+
+        private void mutePhone() {
+            phoneVolume = audioManager.getStreamVolume(AudioManager.STREAM_RING);
+            audioManager.setStreamVolume(AudioManager.STREAM_RING, 0, 0);
+            checkMute();
+        }
+
+        private void unmutePhone() {
+            audioManager.setStreamVolume(AudioManager.STREAM_RING, phoneVolume, 0);
+            refreshSeekBars();
         }
     }
 

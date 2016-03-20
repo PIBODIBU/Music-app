@@ -45,12 +45,10 @@
                 android:layout_below="@id/bottom_sheet_album_art"
                 android:layout_marginTop="-15dp"
                 android:background="@android:color/transparent"
-                android:paddingLeft="0dp"
-                android:paddingRight="0dp"
+                android:paddingLeft="5dp"
+                android:paddingRight="5dp"
                 android:paddingTop="0dp"
                 android:progress="50"
-                app:paddingEnd="0dp"
-                app:paddingStart="0dp"
                 app:theme="@style/AppTheme.SeekBar" />
         </RelativeLayout>
 
@@ -69,7 +67,8 @@
                 android:layout_alignParentLeft="true"
                 android:layout_alignParentStart="true"
                 android:text="1:42"
-                android:textColor="@color/textSecondary" />
+                android:textColor="@color/textSecondary"
+                android:textSize="12sp" />
 
             <TextView
                 android:id="@+id/time_stamp_duration"
@@ -78,7 +77,8 @@
                 android:layout_alignParentEnd="true"
                 android:layout_alignParentRight="true"
                 android:text="3:24"
-                android:textColor="@color/textSecondary" />
+                android:textColor="@color/textSecondary"
+                android:textSize="12sp" />
         </RelativeLayout>
 
         <LinearLayout
@@ -252,50 +252,16 @@
                 </RelativeLayout>
             </LinearLayout>
 
-            <io.codetail.widget.RevealFrameLayout
-                android:id="@+id/reveal_seek_bar_volume"
+            <LinearLayout
+                android:id="@+id/container_seek_bar_volume"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
+                android:layout_height="0dp"
                 android:layout_alignParentBottom="true"
+                android:background="@color/white"
                 android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:visibility="visible">
-
-                <LinearLayout
-                    android:id="@+id/container_seek_bar_volume"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="@color/white"
-                    android:focusable="true"
-                    android:focusableInTouchMode="true"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:visibility="invisible">
-
-                    <ImageButton
-                        android:id="@+id/container_seek_bar_volume_close"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_marginLeft="16dp"
-                        android:layout_marginStart="16dp"
-                        android:background="@drawable/item_bg_transparent"
-                        android:src="@drawable/ic_close_black_24dp"
-                        android:visibility="gone" />
-
-                    <android.support.v7.widget.AppCompatSeekBar
-                        android:id="@+id/seek_bar_volume"
-                        android:layout_width="match_parent"
-                        android:layout_height="30dp"
-                        android:layout_margin="16dp"
-                        android:max="100"
-                        android:paddingLeft="8dp"
-                        android:paddingRight="8dp"
-                        android:paddingTop="0dp"
-                        android:progress="100"
-                        android:visibility="gone"
-                        app:theme="@style/AppTheme.SeekBar.Accent" />
-                </LinearLayout>
-            </io.codetail.widget.RevealFrameLayout>
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="invisible"></LinearLayout>
 
         </RelativeLayout>
     </LinearLayout>

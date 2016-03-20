@@ -1,0 +1,80 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    android:clickable="true"
+    android:fitsSystemWindows="true"
+    app:behavior_hideable="true"
+    app:layout_behavior="android.support.design.widget.BottomSheetBehavior">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@color/white"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/image_button_volume_phone"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginLeft="16dp"
+                android:layout_marginStart="16dp"
+                android:background="@drawable/item_bg_transparent"
+                android:focusable="true"
+                android:src="@drawable/ic_phonelink_ring_black_24dp" />
+
+            <android.support.v7.widget.AppCompatSeekBar
+                android:id="@+id/seek_bar_volume_phone"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:layout_margin="16dp"
+                android:focusable="true"
+                android:max="100"
+                android:paddingTop="0dp"
+                android:progress="100"
+                app:paddingEnd="4dp"
+                app:paddingStart="4dp"
+                app:theme="@style/AppTheme.SeekBar.Accent" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@color/white"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/image_button_volume_music"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginLeft="16dp"
+                android:layout_marginStart="16dp"
+                android:background="@drawable/item_bg_transparent"
+                android:focusable="true"
+                android:scaleType="center"
+                android:src="@drawable/ic_volume_up_black_24dp" />
+
+            <android.support.v7.widget.AppCompatSeekBar
+                android:id="@+id/seek_bar_volume_music"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:layout_margin="16dp"
+                android:focusable="true"
+                android:max="100"
+                android:paddingTop="0dp"
+                android:progress="100"
+                app:paddingEnd="4dp"
+                app:paddingStart="4dp"
+                app:theme="@style/AppTheme.SeekBar.Accent" />
+        </LinearLayout>
+
+    </LinearLayout>
+</FrameLayout>
