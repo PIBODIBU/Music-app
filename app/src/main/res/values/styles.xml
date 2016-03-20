@@ -8,6 +8,14 @@
         <item name="android:textColorPrimary">@color/white</item>
         <item name="android:textColorSecondary">@color/white</item>
         <item name="android:textColorHint">@color/white</item>
+
+        <item name="textAppearanceLargePopupMenu">@style/AppTheme.PopupMenu</item>
+        <item name="textAppearanceSmallPopupMenu">@style/AppTheme.PopupMenu</item>
+    </style>
+
+    <style name="AppTheme.PopupMenu">
+        <item name="android:textColor">@color/black</item>
+        <item name="android:textSize">16sp</item>
     </style>
 
     <style name="AppTheme.ToolBar" parent="Theme.AppCompat.Light.NoActionBar">

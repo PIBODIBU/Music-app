@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:paddingBottom="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginLeft="16dp"
+        android:layout_marginStart="16dp"
+        android:padding="16dp"
+        android:text="Rewind length: "
+        android:textColor="@color/textPrimary"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/rewind_length"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentRight="true"
+        android:layout_marginEnd="16dp"
+        android:layout_marginRight="16dp"
+        android:padding="16dp"
+        android:text="5"
+        android:textColor="@color/textPrimary"
+        android:textSize="16sp" />
+
+    <android.support.v7.widget.AppCompatSeekBar
+        android:id="@+id/seek_bar_rewind_lentgth"
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:layout_below="@+id/rewind_length"
+        android:layout_marginBottom="16dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="16dp"
+        android:layout_marginTop="16dp"
+        android:paddingTop="0dp"
+        android:progress="100"
+        app:paddingEnd="8dp"
+        app:paddingStart="8dp"
+        app:theme="@style/AppTheme.SeekBar.Accent" />
+</RelativeLayout>

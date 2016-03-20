@@ -1,10 +1,17 @@
 package com.android.simplemusic;
 
+import android.app.Activity;
+import android.app.Dialog;
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.database.Cursor;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -15,17 +22,23 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.BottomSheetBehavior;
 import android.support.design.widget.CoordinatorLayout;
+import android.support.design.widget.Snackbar;
+import android.support.v4.app.DialogFragment;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.AppCompatSeekBar;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.PopupMenu;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -35,6 +48,7 @@ import android.widget.TextView;
 
 import com.android.simplemusic.Support.AnimationSupport;
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.Resource;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -51,6 +65,8 @@ public class TestActivity extends AppCompatActivity {
 
     private final String TAG = getClass().getSimpleName();
 
+    private MusicIntentReceiver musicIntentReceiver;
+    private ClipboardManager clipboardManager;
     private AudioManager audioManager;
     private NotificationManager notificationManager;
     private static final int NOTIFY_ID = 1;
@@ -80,7 +96,7 @@ public class TestActivity extends AppCompatActivity {
     private View bottomSheetFrame;
 
     private AppCompatSeekBar SBsongPosition;
-    private AppCompatSeekBar SBvolume;
+    private AppCompatSeekBar SBcontainerVolume;
 
     private TextView TVtimeStampCurrent;
     private TextView TVtimeStampDuration;
@@ -96,10 +112,10 @@ public class TestActivity extends AppCompatActivity {
     private ImageButton IBnext;
     private ImageButton IBprevious;
 
-    private ImageButton IBconrolVolume;
-    private ImageButton IBconrolShuffle;
-    private ImageButton IBconrolRepeat;
-    private ImageButton IBconrolMenu;
+    private ImageButton IBcontrolVolume;
+    private ImageButton IBcontrolShuffle;
+    private ImageButton IBcontrolRepeat;
+    private ImageButton IBcontrolMenu;
 
     private RevealFrameLayout RFLcontainerSBvolume;
     private LinearLayout LLcontainerSBvolume;
@@ -121,8 +137,11 @@ public class TestActivity extends AppCompatActivity {
 
     private String songTitle = "";
     private int songPosition;
+
+    private int rewindLenght = 5;
     private boolean shuffle = false;
     private boolean paused = false;
+    private boolean repeat = false;
 
     private BottomSheetBehavior bottomSheetBehavior;
 
@@ -131,6 +150,8 @@ public class TestActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_test);
 
+        musicIntentReceiver = new MusicIntentReceiver();
+        clipboardManager = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
@@ -143,6 +164,13 @@ public class TestActivity extends AppCompatActivity {
         setUpRecyclerView();
         initMusicPlayer();
         initBottomSheet();
+    }
+
+    @Override
+    protected void onResume() {
+        IntentFilter filter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
+        registerReceiver(musicIntentReceiver, filter);
+        super.onResume();
     }
 
     @Override
@@ -291,7 +319,11 @@ public class TestActivity extends AppCompatActivity {
                     }
                 });*/
 
-                RFLcontainerSBvolume.setVisibility(View.GONE);
+                // Don't touch this
+                SBcontainerVolume.setVisibility(View.GONE);
+                IBcontainerClose.setVisibility(View.GONE);
+
+                LLcontainerSBvolume.setVisibility(View.INVISIBLE);
             }
         });
 
@@ -323,29 +355,72 @@ public class TestActivity extends AppCompatActivity {
         IBrewindForward.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                rewindForward(5);
+                rewindForward(rewindLenght);
             }
         });
         IBrewindBack.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                rewindBack(5);
+                rewindBack(rewindLenght);
             }
         });
 
-        IBconrolShuffle = (ImageButton) findViewById(R.id.bottom_sheet_control_shuffle);
-        IBconrolShuffle.setOnClickListener(new View.OnClickListener() {
+        IBcontrolMenu = (ImageButton) findViewById(R.id.bottom_sheet_control_menu);
+        IBcontrolMenu.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                PopupMenu popupMenu = new PopupMenu(TestActivity.this, v);
+                popupMenu.inflate(R.menu.control_menu);
+
+                popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+                    @Override
+                    public boolean onMenuItemClick(MenuItem item) {
+                        switch (item.getItemId()) {
+                            case R.id.action_copy:
+                                ClipData clip = ClipData.newPlainText("SimpleMusic_SongTitle", TVsongTitle.getText());
+                                clipboardManager.setPrimaryClip(clip);
+                                break;
+                            case R.id.action_setting_rewind:
+                                RewindLengthDialog rewindLengthDialog = new RewindLengthDialog();
+                                rewindLengthDialog.init(TestActivity.this);
+                                rewindLengthDialog.show(getSupportFragmentManager(), "rewindLengthDialog");
+                                break;
+                            default:
+                                break;
+                        }
+                        return true;
+                    }
+                });
+
+                popupMenu.show();
+            }
+        });
+
+        IBcontrolShuffle = (ImageButton) findViewById(R.id.bottom_sheet_control_shuffle);
+        IBcontrolShuffle.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 toggleShuffleState();
             }
         });
 
-        IBconrolVolume = (ImageButton) findViewById(R.id.bottom_sheet_control_volume);
-        IBconrolVolume.setOnClickListener(new View.OnClickListener() {
+        IBcontrolRepeat = (ImageButton) findViewById(R.id.bottom_sheet_control_repeat);
+        IBcontrolRepeat.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                RFLcontainerSBvolume.setVisibility(View.VISIBLE);
+                toggleRepeatState();
+            }
+        });
+
+        IBcontrolVolume = (ImageButton) findViewById(R.id.bottom_sheet_control_volume);
+        IBcontrolVolume.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Don't touch this
+                SBcontainerVolume.setVisibility(View.VISIBLE);
+                IBcontainerClose.setVisibility(View.VISIBLE);
+                LLcontainerSBvolume.setVisibility(View.VISIBLE);
+
                 /*AnimationSupport.Reveal.openFromLeft(LLcontainerSBvolume, new AnimationSupport.Reveal.AnimationAction() {
                     @Override
                     public void onPrepare() {
@@ -359,20 +434,20 @@ public class TestActivity extends AppCompatActivity {
             }
         });
 
-        SBvolume = (AppCompatSeekBar) findViewById(R.id.seek_bar_volume);
-        SBvolume.setMax(audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
-        SBvolume.setProgress(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
+        SBcontainerVolume = (AppCompatSeekBar) findViewById(R.id.seek_bar_volume);
+        SBcontainerVolume.setMax(audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
+        SBcontainerVolume.setProgress(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
 
         Log.d(TAG, "System -> " +
                 "\nVolume max: " + audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) +
                 "\nVolume current: " + (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)));
 
         if (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0) {
-            IBconrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_off_black_24dp));
+            IBcontrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_off_black_24dp));
         } else {
-            IBconrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_up_black_24dp));
+            IBcontrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_up_black_24dp));
         }
-        SBvolume.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        SBcontainerVolume.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 Log.d(TAG, "Volume SeekBar: " + progress);
@@ -380,9 +455,9 @@ public class TestActivity extends AppCompatActivity {
                 audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, progress, 0);
 
                 if (progress == 0) {
-                    IBconrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_off_black_24dp));
+                    IBcontrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_off_black_24dp));
                 } else {
-                    IBconrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_up_black_24dp));
+                    IBcontrolVolume.setImageDrawable(ContextCompat.getDrawable(TestActivity.this, R.drawable.ic_volume_up_black_24dp));
 
                 }
             }
@@ -559,10 +634,14 @@ public class TestActivity extends AppCompatActivity {
         mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
             @Override
             public void onCompletion(MediaPlayer mp) {
-                //check if playback has reached the end of a track
-                if (mediaPlayer.getCurrentPosition() > 0) {
-                    mp.reset();
-                    playNext();
+                // Check if playback has reached the end of a track
+                if (repeat) {
+                    playSong();
+                } else {
+                    if (mediaPlayer.getCurrentPosition() > 0) {
+                        mp.reset();
+                        playNext();
+                    }
                 }
             }
         });
@@ -599,34 +678,6 @@ public class TestActivity extends AppCompatActivity {
         }
 
         startUpdateTask(playSong);
-    }
-
-    private void setPauseState(boolean isPaused) {
-        Log.d(TAG, "setPauseState() -> " + isPaused);
-        if (isPaused) {
-            paused = true;
-            Glide // Bottom Sheet
-                    .with(TestActivity.this)
-                    .load(R.drawable.ic_play_arrow_primary_24dp)
-                    .into(IBplayStop);
-
-            Glide //Bottom Bar
-                    .with(TestActivity.this)
-                    .load(R.drawable.ic_play_arrow_primary_24dp)
-                    .into(IBplayStopBar);
-            pause();
-        } else {
-            paused = false;
-            Glide // Bottom Sheet
-                    .with(TestActivity.this)
-                    .load(R.drawable.ic_pause_primary_24dp)
-                    .into(IBplayStop);
-            Glide // Bottom Bar
-                    .with(TestActivity.this)
-                    .load(R.drawable.ic_pause_primary_24dp)
-                    .into(IBplayStopBar);
-            start();
-        }
     }
 
     private void startUpdateTask(Song song) {
@@ -821,7 +872,56 @@ public class TestActivity extends AppCompatActivity {
             songPosition++;
             if (songPosition >= songs.size()) songPosition = 0;
         }
+
         playSong();
+    }
+
+    private void setPauseState(boolean isPaused) {
+        Log.d(TAG, "setPauseState() -> " + isPaused);
+        if (isPaused) {
+            paused = true;
+            Glide // Bottom Sheet
+                    .with(TestActivity.this)
+                    .load(R.drawable.ic_play_arrow_primary_24dp)
+                    .into(IBplayStop);
+
+            Glide //Bottom Bar
+                    .with(TestActivity.this)
+                    .load(R.drawable.ic_play_arrow_primary_24dp)
+                    .into(IBplayStopBar);
+            pause();
+        } else {
+            paused = false;
+            Glide // Bottom Sheet
+                    .with(TestActivity.this)
+                    .load(R.drawable.ic_pause_primary_24dp)
+                    .into(IBplayStop);
+            Glide // Bottom Bar
+                    .with(TestActivity.this)
+                    .load(R.drawable.ic_pause_primary_24dp)
+                    .into(IBplayStopBar);
+            start();
+        }
+    }
+
+    private void toggleRepeatState() {
+        if (repeat) {
+            setRepeatOff();
+        } else {
+            setRepeatOn();
+        }
+    }
+
+    private void setRepeatOn() {
+        repeat = true;
+
+        IBcontrolRepeat.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_repeat_primary_24dp));
+    }
+
+    private void setRepeatOff() {
+        repeat = false;
+
+        IBcontrolRepeat.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_repeat_black_24dp));
     }
 
     @Override
@@ -847,17 +947,94 @@ public class TestActivity extends AppCompatActivity {
     private void setShuffleOn() {
         shuffle = true;
 
-        IBconrolShuffle.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_shuffle_primary_24dp));
+        IBcontrolShuffle.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_shuffle_primary_24dp));
     }
 
     private void setShuffleOff() {
         shuffle = false;
 
-        IBconrolShuffle.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_shuffle_black_24dp));
+        IBcontrolShuffle.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_shuffle_black_24dp));
     }
-
 
     public boolean getShuffle() {
         return shuffle;
+    }
+
+    public int getRewindLenght() {
+        return rewindLenght;
+    }
+
+    public void setRewindLength(int length) {
+        this.rewindLenght = length;
+    }
+
+    private class MusicIntentReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction().equals(Intent.ACTION_HEADSET_PLUG)) {
+                int state = intent.getIntExtra("state", -1);
+                switch (state) {
+                    case 0:
+                        Snackbar.make(rootView, "Headset is unplugged", Snackbar.LENGTH_SHORT).show();
+                        break;
+                    case 1:
+                        Snackbar.make(rootView, "Headset is plugged", Snackbar.LENGTH_SHORT).show();
+                        break;
+                    default:
+                        Snackbar.make(rootView, "I have no idea what the headset state is", Snackbar.LENGTH_SHORT).show();
+                }
+            }
+        }
+    }
+
+    public static class RewindLengthDialog extends DialogFragment {
+        private final int OFFSET = 5;
+        private AlertDialog dialog;
+        private Activity activity;
+
+        public void init(Activity activity) {
+            this.activity = activity;
+        }
+
+        @NonNull
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+            View mainView = getActivity().getLayoutInflater().inflate(R.layout.dialog_rewind, null);
+            AppCompatSeekBar seekBar = (AppCompatSeekBar) mainView.findViewById(R.id.seek_bar_rewind_lentgth);
+            final TextView TVrewindLength = (TextView) mainView.findViewById(R.id.rewind_length);
+
+            seekBar.setMax(30);
+            seekBar.incrementProgressBy(OFFSET);
+            seekBar.setProgress(((TestActivity) activity).getRewindLenght());
+
+            TVrewindLength.setText(String.valueOf(((TestActivity) activity).getRewindLenght()));
+
+            seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    progress = Math.round(progress / OFFSET) * OFFSET;
+                    TVrewindLength.setText(String.valueOf(progress));
+                    ((TestActivity) activity).setRewindLength(progress);
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {
+                    seekBar.showContextMenu();
+                }
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {
+
+                }
+            });
+
+            dialog = builder
+                    .setTitle("Choose rewind length")
+                    .setView(mainView)
+                    .create();
+
+            return dialog;
+        }
     }
 }
