@@ -5,12 +5,14 @@ import android.app.Dialog;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.database.Cursor;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -24,6 +26,7 @@ import android.support.annotation.Nullable;
 import android.support.design.widget.BottomSheetBehavior;
 import android.support.design.widget.BottomSheetDialogFragment;
 import android.support.design.widget.CoordinatorLayout;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
@@ -46,6 +49,8 @@ import android.widget.TextView;
 
 import com.android.simplemusic.Support.AnimationSupport;
 import com.bumptech.glide.Glide;
+import com.squareup.picasso.Callback;
+import com.squareup.picasso.Picasso;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -54,6 +59,7 @@ import java.util.Comparator;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.logging.Logger;
 
 import io.codetail.widget.RevealFrameLayout;
 import me.zhanghai.android.materialprogressbar.MaterialProgressBar;
@@ -62,6 +68,7 @@ public class TestActivity extends AppCompatActivity {
 
     private final String TAG = getClass().getSimpleName();
 
+    private MusicIntentReceiver musicIntentReceiver = new MusicIntentReceiver();
     private ClipboardManager clipboardManager;
     private static AudioManager audioManager;
     private NotificationManager notificationManager;
@@ -134,6 +141,7 @@ public class TestActivity extends AppCompatActivity {
     private boolean shuffle = false;
     private boolean paused = true;
     private boolean repeat = false;
+    private boolean wasPlugged = false;
 
     private BottomSheetBehavior bottomSheetBehavior;
 
@@ -721,12 +729,32 @@ public class TestActivity extends AppCompatActivity {
             if (song.getAlbumArt().equalsIgnoreCase("")) {
                 IValbumArtBar.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_music_note_primary_100_24dp));
             } else {
-                Glide
+                /***********************SAFE LOADING WITH PICASSO (instead of Glide)***********************/
+                Picasso
                         .with(this)
                         .load(song.getAlbumArt())
-                        .crossFade()
-                        .centerCrop()
-                        .into(IValbumArtBar);
+                        .into(IValbumArtBar, new Callback() {
+                            @Override
+                            public void onSuccess() {
+                                if (IValbumArtBar.getDrawable() == null) {
+                                    Log.e(TAG, "prepareUpdateTask() -> onSuccess() -> Drawable is null");
+                                    Picasso
+                                            .with(TestActivity.this)
+                                            .load(R.drawable.ic_music_note_primary_100_24dp)
+                                            .into(IValbumArtBar);
+                                }
+                            }
+
+                            @Override
+                            public void onError() {
+                                Log.e(TAG, "prepareUpdateTask() -> onError() -> ");
+                                Picasso
+                                        .with(TestActivity.this)
+                                        .load(R.drawable.ic_music_note_primary_100_24dp)
+                                        .into(IValbumArtBar);
+                            }
+                        });
+                /********************************************************************************************/
             }
         } catch (NullPointerException ex) {
             ex.printStackTrace();
@@ -747,11 +775,32 @@ public class TestActivity extends AppCompatActivity {
                 IValbumArt.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_music_note_primary_100_100dp));
 
             } else {
-                Glide
+                /***********************SAFE LOADING WITH PICASSO (instead of Glide)***********************/
+                Picasso
                         .with(this)
                         .load(song.getAlbumArt())
-                        .fitCenter()
-                        .into(IValbumArt);
+                        .into(IValbumArt, new Callback() {
+                            @Override
+                            public void onSuccess() {
+                                if (IValbumArt.getDrawable() == null) {
+                                    Log.e(TAG, "prepareUpdateTask() -> onSuccess() -> Drawable is null");
+                                    Picasso
+                                            .with(TestActivity.this)
+                                            .load(R.drawable.ic_music_note_primary_100_100dp)
+                                            .into(IValbumArt);
+                                }
+                            }
+
+                            @Override
+                            public void onError() {
+                                Log.e(TAG, "prepareUpdateTask() -> onError() -> ");
+                                Picasso
+                                        .with(TestActivity.this)
+                                        .load(R.drawable.ic_music_note_primary_100_100dp)
+                                        .into(IValbumArt);
+                            }
+                        });
+                /********************************************************************************************/
             }
         } catch (NullPointerException ex) {
             ex.printStackTrace();
@@ -1192,6 +1241,37 @@ public class TestActivity extends AppCompatActivity {
                     .create();
 
             return dialog;
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        IntentFilter filter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
+        registerReceiver(musicIntentReceiver, filter);
+        super.onResume();
+        checkMute();
+    }
+
+    private class MusicIntentReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction().equals(Intent.ACTION_HEADSET_PLUG)) {
+                int state = intent.getIntExtra("state", -1);
+                switch (state) {
+                    case 0:
+                        if (wasPlugged) {
+                            setPauseState(true);
+                        }
+                        //Snackbar.make(rootView, "Headset is unplugged", Snackbar.LENGTH_SHORT).show();
+                        break;
+                    case 1:
+                        wasPlugged = true;
+                        //Snackbar.make(rootView, "Headset is plugged", Snackbar.LENGTH_SHORT).show();
+                        break;
+                    default:
+                        //Snackbar.make(rootView, "I have no idea what the headset state is", Snackbar.LENGTH_SHORT).show();
+                }
+            }
         }
     }
 }
