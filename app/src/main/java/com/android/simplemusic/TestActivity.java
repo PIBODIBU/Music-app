@@ -14,6 +14,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.database.Cursor;
+import android.graphics.BitmapFactory;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -23,6 +24,7 @@ import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.customtabs.CustomTabsIntent;
 import android.support.design.widget.BottomSheetBehavior;
 import android.support.design.widget.BottomSheetDialogFragment;
 import android.support.design.widget.CoordinatorLayout;
@@ -48,9 +50,12 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import com.android.simplemusic.Support.AnimationSupport;
+import com.android.simplemusic.Support.Chrome.CustomTabActivityHelper;
 import com.bumptech.glide.Glide;
 import com.squareup.picasso.Callback;
 import com.squareup.picasso.Picasso;
+
+import org.adw.library.widgets.discreteseekbar.DiscreteSeekBar;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -150,6 +155,7 @@ public class TestActivity extends AppCompatActivity {
     private final String TAG_SONG_ID = "SONG_ID";
     private final String TAG_POSITION = "POSITION";
     private final String TAG_PAUSE_STATE = "PAUSE_STATE";
+    private final String CURRENT_REWIND = "CURRENT_REWIND";
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -172,6 +178,8 @@ public class TestActivity extends AppCompatActivity {
         checkMute();
 
         if (savedInstanceState != null) {
+            setRewindLength(savedInstanceState.getInt(CURRENT_REWIND, 10));
+
             setSongPosition(savedInstanceState.getInt(TAG_SONG_ID, 0));
             playSong();
             seek(savedInstanceState.getInt(TAG_POSITION, 0));
@@ -196,12 +204,13 @@ public class TestActivity extends AppCompatActivity {
         outState.putInt(TAG_POSITION, getCurrentPosition());
         outState.putInt(TAG_SONG_ID, getSongPosition());
         outState.putBoolean(TAG_PAUSE_STATE, paused);
+        outState.putInt(CURRENT_REWIND, rewindLenght);
 
         super.onSaveInstanceState(outState);
     }
 
     /**
-     * Find {@link Song} by its {@link android.provider.MediaStore.Audio.Media._ID}
+     * Find {@link Song} by its {android.provider.MediaStore.Audio.Media._ID} // Without @link because of "Not found"
      *
      * @param id id of Song to find
      * @return Instance of Song from ArrayList.
@@ -401,13 +410,38 @@ public class TestActivity extends AppCompatActivity {
                     public boolean onMenuItemClick(MenuItem item) {
                         switch (item.getItemId()) {
                             case R.id.action_copy:
-                                ClipData clip = ClipData.newPlainText("SimpleMusic_SongTitle", TVsongTitle.getText());
-                                clipboardManager.setPrimaryClip(clip);
+                                try {
+                                    ClipData clip = ClipData.newPlainText("SimpleMusic_SongTitle", TVsongTitle.getText());
+                                    clipboardManager.setPrimaryClip(clip);
+                                    Snackbar.make(rootView, "Text was copied to clipboard", Snackbar.LENGTH_SHORT).show();
+                                } catch (Exception ex) {
+                                    Log.e(TAG, "PopupMenu -> OnMenuItemClickListener() -> ", ex);
+                                    Snackbar.make(rootView, "Error occurred during copying", Snackbar.LENGTH_SHORT).show();
+                                }
                                 break;
                             case R.id.action_setting_rewind:
-                                RewindLengthDialog rewindLengthDialog = new RewindLengthDialog();
-                                rewindLengthDialog.init(TestActivity.this);
-                                rewindLengthDialog.show(getSupportFragmentManager(), "rewindLengthDialog");
+                                RewindLengthDialogBottom rewindLengthDialogBottom = new RewindLengthDialogBottom();
+                                rewindLengthDialogBottom.show(getSupportFragmentManager(), "rewindLengthDialogBottom");
+                                break;
+                            case R.id.chrome_client:
+                                CustomTabsIntent.Builder customTabsIntentBuilder = new CustomTabsIntent.Builder();
+
+                                customTabsIntentBuilder.setToolbarColor(ContextCompat.getColor(TestActivity.this, R.color.colorAppPrimary));
+                                customTabsIntentBuilder.setCloseButtonIcon(
+                                        BitmapFactory.decodeResource(getResources(), R.drawable.ic_arrow_back_white_24dp));
+                                
+                                CustomTabsIntent customTabsIntent = customTabsIntentBuilder.build();
+
+                                CustomTabActivityHelper.openCustomTab(TestActivity.this, customTabsIntent,
+                                        Uri.parse("https://en.wikipedia.org/wiki/" + TVsongSubtitle.getText().toString().replace(" ", "_")),
+                                        new CustomTabActivityHelper.CustomTabFallback() {
+                                            @Override
+                                            public void openUri(Activity activity, Uri uri) {
+                                                Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                                                startActivity(intent);
+                                            }
+                                        });
+
                                 break;
                             default:
                                 break;
@@ -694,11 +728,15 @@ public class TestActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        PBsongBar.setProgress(getCurrentPosition());
-                        SBsongPosition.setProgress(getCurrentPosition());
-                        TVtimeStampCurrent.setText(msToString(getCurrentPosition()));
+                        try {
+                            PBsongBar.setProgress(getCurrentPosition());
+                            SBsongPosition.setProgress(getCurrentPosition());
+                            TVtimeStampCurrent.setText(msToString(getCurrentPosition()));
 
-                        Log.d(TAG, "updateTask -> Current position: " + msToString(getCurrentPosition()));
+                            Log.d(TAG, "updateTask -> Current position: " + msToString(getCurrentPosition()));
+                        } catch (Exception ex) {
+                            Log.e(TAG, "updateTask -> ", ex);
+                        }
                     }
                 });
             }
@@ -730,6 +768,7 @@ public class TestActivity extends AppCompatActivity {
                 IValbumArtBar.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_music_note_primary_100_24dp));
             } else {
                 /***********************SAFE LOADING WITH PICASSO (instead of Glide)***********************/
+                IValbumArtBar.setScaleType(ImageView.ScaleType.FIT_CENTER);
                 Picasso
                         .with(this)
                         .load(song.getAlbumArt())
@@ -738,6 +777,8 @@ public class TestActivity extends AppCompatActivity {
                             public void onSuccess() {
                                 if (IValbumArtBar.getDrawable() == null) {
                                     Log.e(TAG, "prepareUpdateTask() -> onSuccess() -> Drawable is null");
+
+                                    IValbumArtBar.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
                                     Picasso
                                             .with(TestActivity.this)
                                             .load(R.drawable.ic_music_note_primary_100_24dp)
@@ -748,6 +789,8 @@ public class TestActivity extends AppCompatActivity {
                             @Override
                             public void onError() {
                                 Log.e(TAG, "prepareUpdateTask() -> onError() -> ");
+
+                                IValbumArtBar.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
                                 Picasso
                                         .with(TestActivity.this)
                                         .load(R.drawable.ic_music_note_primary_100_24dp)
@@ -776,6 +819,7 @@ public class TestActivity extends AppCompatActivity {
 
             } else {
                 /***********************SAFE LOADING WITH PICASSO (instead of Glide)***********************/
+                IValbumArt.setScaleType(ImageView.ScaleType.FIT_CENTER);
                 Picasso
                         .with(this)
                         .load(song.getAlbumArt())
@@ -784,6 +828,8 @@ public class TestActivity extends AppCompatActivity {
                             public void onSuccess() {
                                 if (IValbumArt.getDrawable() == null) {
                                     Log.e(TAG, "prepareUpdateTask() -> onSuccess() -> Drawable is null");
+
+                                    IValbumArt.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
                                     Picasso
                                             .with(TestActivity.this)
                                             .load(R.drawable.ic_music_note_primary_100_100dp)
@@ -794,6 +840,8 @@ public class TestActivity extends AppCompatActivity {
                             @Override
                             public void onError() {
                                 Log.e(TAG, "prepareUpdateTask() -> onError() -> ");
+
+                                IValbumArt.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
                                 Picasso
                                         .with(TestActivity.this)
                                         .load(R.drawable.ic_music_note_primary_100_100dp)
@@ -1193,57 +1241,6 @@ public class TestActivity extends AppCompatActivity {
         }
     }
 
-    public static class RewindLengthDialog extends DialogFragment {
-        private final int OFFSET = 5;
-        private AlertDialog dialog;
-        private Activity activity;
-
-        public void init(Activity activity) {
-            this.activity = activity;
-        }
-
-        @NonNull
-        @Override
-        public Dialog onCreateDialog(Bundle savedInstanceState) {
-            AlertDialog.Builder builder = new AlertDialog.Builder(activity);
-            View mainView = getActivity().getLayoutInflater().inflate(R.layout.dialog_rewind, null);
-            AppCompatSeekBar seekBar = (AppCompatSeekBar) mainView.findViewById(R.id.seek_bar_rewind_lentgth);
-            final TextView TVrewindLength = (TextView) mainView.findViewById(R.id.rewind_length);
-
-            seekBar.setMax(30);
-            seekBar.incrementProgressBy(OFFSET);
-            seekBar.setProgress(((TestActivity) activity).getRewindLenght());
-
-            TVrewindLength.setText(String.valueOf(((TestActivity) activity).getRewindLenght()));
-
-            seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-                @Override
-                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                    progress = Math.round(progress / OFFSET) * OFFSET;
-                    TVrewindLength.setText(String.valueOf(progress));
-                    ((TestActivity) activity).setRewindLength(progress);
-                }
-
-                @Override
-                public void onStartTrackingTouch(SeekBar seekBar) {
-                    seekBar.showContextMenu();
-                }
-
-                @Override
-                public void onStopTrackingTouch(SeekBar seekBar) {
-
-                }
-            });
-
-            dialog = builder
-                    .setTitle("Choose rewind length")
-                    .setView(mainView)
-                    .create();
-
-            return dialog;
-        }
-    }
-
     @Override
     protected void onResume() {
         IntentFilter filter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
@@ -1274,4 +1271,67 @@ public class TestActivity extends AppCompatActivity {
             }
         }
     }
+
+    public static class RewindLengthDialogBottom extends BottomSheetDialogFragment {
+        private static final String TAG = "RewindLengthDialogBottom";
+
+        private Activity activity;
+
+        private View bottomSheet;
+        private DiscreteSeekBar seekBar;
+
+        private final String CURRENT_REWIND = "CURRENT_REWIND";
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            activity = getActivity();
+
+            bottomSheet = activity.getLayoutInflater().inflate(R.layout.dialog_rewind, null);
+            seekBar = (DiscreteSeekBar) bottomSheet.findViewById(R.id.seek_bar_rewind_lentgth);
+
+            if (savedInstanceState != null) {
+                seekBar.setProgress(savedInstanceState.getInt(CURRENT_REWIND, ((TestActivity) activity).getRewindLenght()));
+            }
+
+            return super.onCreateDialog(savedInstanceState);
+        }
+
+        @Override
+        public void setupDialog(Dialog dialog, int style) {
+            seekBar.setMax(30);
+            seekBar.setProgress(((TestActivity) activity).getRewindLenght());
+
+            seekBar.setOnProgressChangeListener(new DiscreteSeekBar.OnProgressChangeListener() {
+                @Override
+                public void onProgressChanged(DiscreteSeekBar seekBar, int progress, boolean fromUser) {
+                    ((TestActivity) activity).setRewindLength(progress);
+                }
+
+                @Override
+                public void onStartTrackingTouch(DiscreteSeekBar seekBar) {
+
+                }
+
+                @Override
+                public void onStopTrackingTouch(DiscreteSeekBar seekBar) {
+
+                }
+            });
+
+            dialog.setContentView(bottomSheet);
+
+            super.setupDialog(dialog, style);
+        }
+
+        @Override
+        public void onSaveInstanceState(Bundle outState) {
+            outState.putInt(CURRENT_REWIND, getCurrentRewind());
+            super.onSaveInstanceState(outState);
+        }
+
+        private int getCurrentRewind() {
+            return seekBar.getProgress();
+        }
+    }
+
 }

@@ -9,4 +9,8 @@
         android:id="@+id/action_setting_rewind"
         android:title="Rewind length" />
 
+    <item
+        android:id="@+id/chrome_client"
+        android:title="Chrome Custom Tabs" />
+
 </menu>
