@@ -12,9 +12,8 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-
         <activity
-            android:name=".SplashActivity"
+            android:name=".MainActivity"
             android:launchMode="singleTop"
             android:screenOrientation="portrait">
             <intent-filter>
@@ -23,28 +22,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <activity
-            android:name=".MainActivity"
-            android:launchMode="singleTop" />
-
         <activity
             android:name=".TestActivity"
             android:label="Test Activity" />
 
-        <activity
-            android:name=".ImageTestActivity"
-            android:label="Test Image" />
-
-
         <service
             android:name=".MusicService"
             android:enabled="true" />
-        <service
-            android:name=".BackgroundService"
-            android:enabled="true"
-            android:process=":music_service" />
-
     </application>
 
 </manifest>

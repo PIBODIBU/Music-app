@@ -2,7 +2,6 @@ package com.android.simplemusic.Support;
 
 import android.content.Context;
 import android.os.Handler;
-import android.support.annotation.Nullable;
 import android.util.Log;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
@@ -31,32 +30,7 @@ public class AnimationSupport {
         int cy = (view.getTop() + view.getBottom()) / 2;
          */
 
-        public static void openFromCenter(final View view, @Nullable final AnimationCallbacks animationCallbacks) {
-            int cx = (view.getLeft() + view.getRight()) / 2;
-            int cy = (view.getTop() + view.getBottom()) / 2;
-
-            // get the final radius for the clipping circle
-            int dx = Math.max(cx, view.getWidth());
-            int dy = Math.max(cy, view.getHeight());
-            float finalRadius = (float) Math.hypot(dx, dy);
-
-            SupportAnimator animator = ViewAnimationUtils.createCircularReveal(view, cx, cy, 0, finalRadius);
-            animator.setInterpolator(new AccelerateDecelerateInterpolator());
-            animator.setDuration(animDuration);
-            view.setVisibility(View.VISIBLE);
-
-            if (animationCallbacks != null) {
-                animationCallbacks.onPrepare();
-            }
-
-            try {
-                animator.start();
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        }
-
-        public static void openFromLeft(final View view, @Nullable final AnimationCallbacks animationCallbacks) {
+        public static void openFromLeft(final View view) {
             int cx = view.getLeft();
             int cy = view.getLeft();
 
@@ -70,8 +44,29 @@ public class AnimationSupport {
             animator.setDuration(animDuration);
             view.setVisibility(View.VISIBLE);
 
-            if (animationCallbacks != null) {
-                animationCallbacks.onPrepare();
+            try {
+                animator.start();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+
+        public static void openFromLeft(final View view, final AnimationAction animationAction) {
+            int cx = view.getLeft();
+            int cy = view.getLeft();
+
+            // get the final radius for the clipping circle
+            int dx = Math.max(cx, view.getWidth());
+            int dy = Math.max(cy, view.getHeight());
+            float finalRadius = (float) Math.hypot(dx, dy);
+
+            SupportAnimator animator = ViewAnimationUtils.createCircularReveal(view, cx, cy, 0, finalRadius);
+            animator.setInterpolator(new AccelerateDecelerateInterpolator());
+            animator.setDuration(animDuration);
+            view.setVisibility(View.VISIBLE);
+
+            if (animationAction != null) {
+                animationAction.onPrepare();
             }
 
             try {
@@ -81,7 +76,7 @@ public class AnimationSupport {
             }
         }
 
-        public static void closeToLeft(final View view, @Nullable final AnimationCallbacks animationCallbacks) {
+        public static void closeToLeft(final View view) {
             int cx = view.getLeft();
             int cy = view.getLeft();
 
@@ -100,8 +95,37 @@ public class AnimationSupport {
                 new Handler().postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        if (animationCallbacks != null)
-                            animationCallbacks.onStart();
+                        view.setVisibility(View.GONE);
+                    }
+                }, animDuration - 100);
+
+                animator.start();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+
+        public static void closeToLeft(final View view, final AnimationAction animationAction) {
+            int cx = view.getLeft();
+            int cy = view.getLeft();
+
+            // get the final radius for the clipping circle
+            int dx = Math.max(cx, view.getWidth() - cx);
+            int dy = Math.max(cy, view.getHeight() - cy);
+            float finalRadius = (float) Math.hypot(dx, dy);
+
+            SupportAnimator animator = ViewAnimationUtils.createCircularReveal(view, cx, cy, 0, finalRadius);
+            animator.setInterpolator(new AccelerateDecelerateInterpolator());
+            animator.setDuration(animDuration);
+
+            animator = animator.reverse();
+
+            try {
+                new Handler().postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (animationAction != null)
+                            animationAction.onStart();
                         view.setVisibility(View.INVISIBLE);
                     }
                 }, animDuration - 100);
@@ -112,7 +136,7 @@ public class AnimationSupport {
             }
         }
 
-        public interface AnimationCallbacks {
+        public interface AnimationAction {
             void onPrepare();
 
             void onStart();

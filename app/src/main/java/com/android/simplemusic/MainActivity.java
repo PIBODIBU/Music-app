@@ -95,8 +95,8 @@ public class MainActivity extends AppCompatActivity implements MediaController.M
         super.onStart();
         if (playIntent == null) {
             playIntent = new Intent(this, MusicService.class);
-            startService(playIntent);
             bindService(playIntent, musicConnection, Context.BIND_AUTO_CREATE);
+            startService(playIntent);
         }
     }
 
@@ -322,8 +322,7 @@ public class MainActivity extends AppCompatActivity implements MediaController.M
 
     @Override
     protected void onDestroy() {
-        //stopService(playIntent);
-        unbindService(musicConnection);
+        stopService(playIntent);
         musicService = null;
         super.onDestroy();
     }
