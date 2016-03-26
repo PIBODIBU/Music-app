@@ -36,7 +36,7 @@
             android:layout_alignParentEnd="true"
             android:layout_alignParentRight="true"
             android:layout_centerVertical="true"
-            android:layout_marginBottom="15dp"
+            android:layout_marginBottom="1dp"
             android:layout_marginRight="70dp"
             android:background="@drawable/item_bg_transparent"
             android:src="@drawable/ic_skip_next_white_24dp" />
