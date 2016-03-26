@@ -8,11 +8,13 @@ import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.database.Cursor;
 import android.graphics.BitmapFactory;
 import android.media.AudioManager;
@@ -20,6 +22,7 @@ import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
@@ -29,9 +32,7 @@ import android.support.design.widget.BottomSheetBehavior;
 import android.support.design.widget.BottomSheetDialogFragment;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.Snackbar;
-import android.support.v4.app.DialogFragment;
 import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.AppCompatSeekBar;
 import android.support.v7.widget.DefaultItemAnimator;
@@ -64,7 +65,6 @@ import java.util.Comparator;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.logging.Logger;
 
 import io.codetail.widget.RevealFrameLayout;
 import me.zhanghai.android.materialprogressbar.MaterialProgressBar;
@@ -147,15 +147,18 @@ public class TestActivity extends AppCompatActivity {
     private boolean paused = true;
     private boolean repeat = false;
     private boolean wasPlugged = false;
+    private boolean isServiceBound = false;
 
     private BottomSheetBehavior bottomSheetBehavior;
-
 
     // Save instance
     private final String TAG_SONG_ID = "SONG_ID";
     private final String TAG_POSITION = "POSITION";
     private final String TAG_PAUSE_STATE = "PAUSE_STATE";
     private final String CURRENT_REWIND = "CURRENT_REWIND";
+
+    private BackgroundService musicService;
+    private Intent musicIntent;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -168,6 +171,7 @@ public class TestActivity extends AppCompatActivity {
 
         initLayout();
 
+        musicIntent = new Intent(this, BackgroundService.class);
         setSupportActionBar(toolbar);
         songPosition = 0;
         random = new Random(getRandomSeed());
@@ -197,6 +201,47 @@ public class TestActivity extends AppCompatActivity {
                 }, 50);
             }
         }
+    }
+
+    private ServiceConnection musicConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            try {
+                BackgroundService.MusicBinder binder = (BackgroundService.MusicBinder) service;
+                musicService = binder.getService();
+
+                musicService.setSongs(songs);
+
+                isServiceBound = true;
+
+                Log.d(TAG, "Service -> Service Connected");
+            } catch (Exception ex) {
+                Log.e(TAG, "Service -> Error Connecting Service", ex);
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            isServiceBound = false;
+
+            Log.d(TAG, "Service -> Service Disconnected");
+        }
+    };
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        bindService(musicIntent, musicConnection, Context.BIND_AUTO_CREATE);
+
+        startService(musicIntent);
+    }
+
+    @Override
+    protected void onStop() {
+        unbindService(musicConnection);
+
+        super.onStop();
     }
 
     @Override
@@ -265,7 +310,7 @@ public class TestActivity extends AppCompatActivity {
 
     private void openBottomBar() {
         if (RFLbottomBarReveal.getVisibility() == View.GONE) {
-            AnimationSupport.Reveal.openFromLeft(RLbottomBarContainer, new AnimationSupport.Reveal.AnimationAction() {
+            AnimationSupport.Reveal.openFromLeft(RLbottomBarContainer, new AnimationSupport.Reveal.AnimationCallbacks() {
                 @Override
                 public void onPrepare() {
                     RFLbottomBarReveal.setVisibility(View.VISIBLE);
@@ -429,7 +474,7 @@ public class TestActivity extends AppCompatActivity {
                                 customTabsIntentBuilder.setToolbarColor(ContextCompat.getColor(TestActivity.this, R.color.colorAppPrimary));
                                 customTabsIntentBuilder.setCloseButtonIcon(
                                         BitmapFactory.decodeResource(getResources(), R.drawable.ic_arrow_back_white_24dp));
-                                
+
                                 CustomTabsIntent customTabsIntent = customTabsIntentBuilder.build();
 
                                 CustomTabActivityHelper.openCustomTab(TestActivity.this, customTabsIntent,
@@ -442,6 +487,13 @@ public class TestActivity extends AppCompatActivity {
                                             }
                                         });
 
+                                break;
+                            case R.id.action_service:
+                                if (isServiceBound) {
+                                    musicService.playSong();
+                                } else {
+                                    Snackbar.make(rootView, "Service isn't bound", Snackbar.LENGTH_SHORT).show();
+                                }
                                 break;
                             default:
                                 break;
@@ -1287,7 +1339,7 @@ public class TestActivity extends AppCompatActivity {
             activity = getActivity();
 
             bottomSheet = activity.getLayoutInflater().inflate(R.layout.dialog_rewind, null);
-            seekBar = (DiscreteSeekBar) bottomSheet.findViewById(R.id.seek_bar_rewind_lentgth);
+            seekBar = (DiscreteSeekBar) bottomSheet.findViewById(R.id.seek_bar_rewind_length);
 
             if (savedInstanceState != null) {
                 seekBar.setProgress(savedInstanceState.getInt(CURRENT_REWIND, ((TestActivity) activity).getRewindLenght()));
