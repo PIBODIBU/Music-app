@@ -12,25 +12,25 @@
         android:layout_height="match_parent"
         android:background="@color/white"
         android:orientation="vertical"
-        android:paddingBottom="16dp"
-        android:paddingTop="8dp">
+        android:paddingBottom="8dp"
+        android:paddingTop="16dp">
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="marquee"
             android:lines="1"
-            android:singleLine="true"
             android:marqueeRepeatLimit="marquee_forever"
             android:paddingBottom="8dp"
             android:paddingLeft="24dp"
             android:paddingRight="24dp"
+            android:singleLine="true"
             android:text="Choose rewind length"
             android:textColor="@color/textPrimary"
             android:textSize="24sp" />
 
         <org.adw.library.widgets.discreteseekbar.DiscreteSeekBar
-            android:id="@+id/seek_bar_rewind_lentgth"
+            android:id="@+id/seek_bar_rewind_length"
             android:layout_width="match_parent"
             android:layout_height="30dp"
             android:layout_marginBottom="16dp"
