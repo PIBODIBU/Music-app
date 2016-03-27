@@ -27,8 +27,7 @@
                 android:layout_width="300dp"
                 android:layout_height="250dp"
                 android:layout_centerInParent="true"
-                android:scaleType="centerInside"
-                android:src="@drawable/player_main" />
+                android:scaleType="centerInside"/>
 
             <RelativeLayout
                 android:layout_width="match_parent"
@@ -45,7 +44,7 @@
                     android:layout_centerInParent="true"
                     android:background="@drawable/item_bg_transparent"
                     android:scaleType="fitXY"
-                    android:src="@drawable/ic_play_arrow_white_24dp" />
+                    android:src="@drawable/button_play" />
 
                 <ImageButton
                     android:id="@+id/bottom_sheet_next"
@@ -58,7 +57,8 @@
                     android:layout_marginBottom="23dp"
                     android:layout_marginRight="70dp"
                     android:background="@drawable/item_bg_transparent"
-                    android:src="@drawable/ic_skip_next_white_24dp" />
+                    android:scaleType="centerInside"
+                    android:src="@drawable/button_skip_next" />
 
                 <ImageButton
                     android:id="@+id/bottom_sheet_previous"
@@ -68,9 +68,10 @@
                     android:layout_alignParentLeft="true"
                     android:layout_alignParentStart="true"
                     android:layout_marginBottom="24dp"
-                    android:layout_marginLeft="72dp"
+                    android:layout_marginLeft="70dp"
                     android:background="@drawable/item_bg_transparent"
-                    android:src="@drawable/ic_skip_previous_white_24dp" />
+                    android:scaleType="centerInside"
+                    android:src="@drawable/button_skip_previous" />
 
                 <ImageButton
                     android:id="@+id/bottom_sheet_stop"
@@ -78,9 +79,10 @@
                     android:layout_height="30dp"
                     android:layout_alignParentTop="true"
                     android:layout_centerHorizontal="true"
-                    android:layout_marginTop="55dp"
+                    android:layout_marginTop="58dp"
                     android:background="@drawable/item_bg_transparent"
-                    android:src="@drawable/ic_stop_white_24dp" />
+                    android:scaleType="centerInside"
+                    android:src="@drawable/button_stop" />
 
                 <ImageButton
                     android:id="@+id/bottom_sheet_pause"
@@ -90,7 +92,8 @@
                     android:layout_centerHorizontal="true"
                     android:layout_marginBottom="53dp"
                     android:background="@drawable/item_bg_transparent"
-                    android:src="@drawable/ic_pause_white_24dp" />
+                    android:scaleType="centerInside"
+                    android:src="@drawable/button_pause" />
             </RelativeLayout>
 
         </RelativeLayout>

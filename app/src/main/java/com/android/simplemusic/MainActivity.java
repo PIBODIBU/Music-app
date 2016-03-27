@@ -8,21 +8,15 @@ import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ComponentName;
-import android.content.ContentResolver;
-import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.database.Cursor;
 import android.graphics.BitmapFactory;
 import android.media.AudioManager;
-import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.IBinder;
-import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.customtabs.CustomTabsIntent;
@@ -51,12 +45,12 @@ import android.widget.Toast;
 
 import com.android.simplemusic.Support.AnimationSupport;
 import com.android.simplemusic.Support.Chrome.CustomTabActivityHelper;
+import com.bumptech.glide.Glide;
 import com.squareup.picasso.Callback;
 import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -68,12 +62,10 @@ public class MainActivity extends AppCompatActivity {
 
     private final String TAG = getClass().getSimpleName();
 
+    private MusicRetriever musicRetriever;
     private MusicIntentReceiver musicIntentReceiver = new MusicIntentReceiver();
     private ClipboardManager clipboardManager;
     private static AudioManager audioManager;
-    private NotificationManager notificationManager;
-    private Notification notification;
-    private static final int NOTIFY_ID = 1;
 
     /**
      * View declaration
@@ -99,6 +91,8 @@ public class MainActivity extends AppCompatActivity {
     // Bottom Sheet Primary Views
     private View bottomSheetFrame;
 
+    private ImageView IVPlayerMain;
+
     private TextView TVtimeStampCurrent;
     private TextView TVtimeStampDuration;
 
@@ -123,7 +117,6 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerViewAdapter songAdapter;
     private ArrayList<Song> songs;
 
-    private Random random;
     private Timer timer = new Timer();
     private TimerTask updateTask;
 
@@ -145,41 +138,46 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        musicIntent = new Intent(this, MusicService.class);
+        musicRetriever = new MusicRetriever(this);
         clipboardManager = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-        notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
         initLayout();
-
         setSupportActionBar(toolbar);
-        random = new Random(getRandomSeed());
-
         initBottomSheet();
         setUpRecyclerView();
         checkMute();
 
         if (savedInstanceState != null) {
+            // Using variable because musicService will be initialized only in onServiceConnected()
             if (savedInstanceState.getBoolean(TAG_WAS_PLAYING, false)) {
                 INSTANCE_WAS_PLAYING = true;
             }
         }
-
-        musicIntent = new Intent(this, MusicService.class);
     }
 
+    /**
+     * Base connection to {@link MusicService}
+     */
     private ServiceConnection musicConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             try {
+                // Casting service to MusicService.MusicBinder type
                 MusicService.MusicBinder binder = (MusicService.MusicBinder) service;
+                // Getting Service from Binder
                 musicService = binder.getService();
 
+                // Passing new DataSet to Service
                 musicService.setSongs(songs);
 
+                // Triggering boolean variable
                 isServiceBound = true;
 
                 Log.d(TAG, "Service -> Service Connected");
 
+                // Checking if orientation was changed
                 if (INSTANCE_WAS_PLAYING) {
                     startUpdateTask(songs.get(musicService.getSongPosition()));
                     openBottomBar();
@@ -204,18 +202,46 @@ public class MainActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
 
+        // Binding Service
         bindService(musicIntent, musicConnection, Context.BIND_AUTO_CREATE);
 
+        // Starting Service
         startService(musicIntent);
     }
 
     @Override
     protected void onStop() {
+        // Unbind Service first
         unbindService(musicConnection);
 
         super.onStop();
     }
 
+    @Override
+    protected void onResume() {
+        IntentFilter filter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
+        registerReceiver(musicIntentReceiver, filter);
+
+        super.onResume();
+
+        checkMute();
+    }
+
+    @Override
+    public void onDestroy() {
+        stopUpdateTask();
+
+        super.onDestroy();
+    }
+
+    /**
+     * Saving current state of playback
+     * <p/>
+     * <p>
+     * Because of using {@link MusicService} we should save (boolean) playing state.
+     * i.e. we save {@link MusicService#isPlaying()}
+     * </p>
+     */
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         outState.putBoolean(TAG_WAS_PLAYING, musicService.isPlaying());
@@ -248,12 +274,15 @@ public class MainActivity extends AppCompatActivity {
                 stopService(musicIntent);
                 System.exit(0);
                 break;
-            case R.id.debug:
-                break;
         }
         return super.onOptionsItemSelected(item);
     }
 
+    /**
+     * Implementing base logic of clicking on {@link RecyclerView} item (song)
+     *
+     * @param position - Position of clicked item
+     */
     public void songClicked(int position) {
         if (isServiceBound) {
             musicService.playSong(position);
@@ -262,14 +291,22 @@ public class MainActivity extends AppCompatActivity {
 
             startUpdateTask(songs.get(position));
         } else {
+            // Service is not bound. Showing warning
             showWarning();
         }
     }
 
+    /**
+     * Basic warning about non-availability of connection with {@link android.app.Service}
+     */
     private void showWarning() {
         Toast.makeText(getApplicationContext(), "Service is not bound", Toast.LENGTH_SHORT).show();
     }
 
+    /**
+     * Check current visibility and open BottomBar with
+     * {@link com.android.simplemusic.Support.AnimationSupport.Reveal} animation
+     */
     private void openBottomBar() {
         if (RLbottomBarContainer.getVisibility() != View.VISIBLE) {
             AnimationSupport.Reveal.openFromLeft(RLbottomBarContainer, new AnimationSupport.Reveal.AnimationCallbacks() {
@@ -286,10 +323,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Method for closing BottomBar
+     */
     private void closeBottomBar() {
         AnimationSupport.Reveal.closeToLeft(RLbottomBarContainer, null);
     }
 
+    /**
+     * Method for initialization Views, {@link android.view.View.OnClickListener},
+     * base logic of UI
+     */
     private void initLayout() {
         toolbar = (Toolbar) findViewById(R.id.toolbar);
         rootView = (CoordinatorLayout) findViewById(R.id.root_view);
@@ -328,6 +372,12 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // Bottom Sheet Primary
+        IVPlayerMain = (ImageView) findViewById(R.id.player_image_main);
+        Glide
+                .with(this)
+                .load(R.drawable.player_main)
+                .crossFade()
+                .into(IVPlayerMain);
 
         TVtimeStampCurrent = (TextView) findViewById(R.id.time_stamp_current);
         TVtimeStampDuration = (TextView) findViewById(R.id.time_stamp_duration);
@@ -396,7 +446,7 @@ public class MainActivity extends AppCompatActivity {
                                 try {
                                     ClipData clip = ClipData.newPlainText("SimpleMusic_SongTitle", TVsongTitle.getText());
                                     clipboardManager.setPrimaryClip(clip);
-                                    Snackbar.make(rootView, "Text was copied to clipboard", Snackbar.LENGTH_SHORT).show();
+                                    Snackbar.make(rootView, "Скопiйовано", Snackbar.LENGTH_SHORT).show();
                                 } catch (Exception ex) {
                                     Log.e(TAG, "PopupMenu -> OnMenuItemClickListener() -> ", ex);
                                     Snackbar.make(rootView, "Error occurred during copying", Snackbar.LENGTH_SHORT).show();
@@ -466,6 +516,16 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Used for handling changing of state of pause
+     * <p/>
+     * <p>
+     * This method also changes UI elements in response on pause/unpause playback
+     * Use this method instead of {@link MusicService#setPaused(boolean)}
+     * </p>
+     *
+     * @param paused - State of pause
+     */
     private void setPaused(boolean paused) {
         if (paused) {
             musicService.setPaused(true);
@@ -476,16 +536,39 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Playback method for skipping to next track
+     * <p>
+     * - Calls {@link MusicService#playNext()} for notifying service (e.g user's click on skipping button)
+     * - Calls {@link MainActivity#startUpdateTask(Song)} for tracking state of playback
+     * </p>
+     */
     private void playNext() {
         musicService.playNext();
         startUpdateTask(songs.get(musicService.getSongPosition()));
     }
 
+    /**
+     * Playback method for skipping to previous track
+     * <p>
+     * - Calls {@link MusicService#playPrevious()} ()} for notifying service (e.g user's click on skipping button)
+     * - Calls {@link MainActivity#startUpdateTask(Song)} for tracking state of playback
+     * </p>
+     */
     private void playPrevious() {
         musicService.playPrevious();
         startUpdateTask(songs.get(musicService.getSongPosition()));
     }
 
+    /**
+     * Implementation of {@code bottomSheetBehavior}'s logic
+     * <p/>
+     * <p>
+     * You can implement reaction on different {@link BottomSheetBehavior} states
+     * {@link BottomSheetBehavior#STATE_COLLAPSED} or sliding offset using
+     * {@link BottomSheetBehavior#setBottomSheetCallback(BottomSheetBehavior.BottomSheetCallback)}
+     * </p>
+     */
     private void initBottomSheet() {
         // Bottom Sheet Primary
         bottomSheetFrame = rootView.findViewById(R.id.bottom_sheet);
@@ -537,6 +620,9 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Implementation of {@code recyclerView}'s and {@code songAdapter} logic and passing new data to {@code songAdapter}
+     */
     private void setUpRecyclerView() {
         recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
 
@@ -556,69 +642,49 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        getSongList();
-        sortSongList();
+        setUpArrayList();
     }
 
-    private void sortSongList() {
-        Collections.sort(songs, new Comparator<Song>() {
-            public int compare(Song a, Song b) {
-                return a.getTitle().compareTo(b.getTitle());
-            }
-        });
+    /**
+     * Retrieve and sort ArrayList of songs using {@link MusicRetriever}
+     * <p/>
+     * <p>
+     * Songs are retrieved from both internal and external storages.
+     * For retrieving songs from internal and external storages separately use
+     * {@link MusicRetriever#getSongFromExternalStorage()} or {@link MusicRetriever#getSongFromInternalStorage()} instead
+     * </p>
+     */
+    private void setUpArrayList() {
+        songs = musicRetriever.getSongs();
+        musicRetriever.sortListAlphabet(songs);
     }
 
+    /**
+     * Method used for shuffling ArrayList of Song
+     * <p/>
+     * <p>
+     * - Shuffle {@link ArrayList} of {@link Song} using {@link MusicRetriever}
+     * - Notify {@code songAdapter} about changing of DataSet
+     * with {@link RecyclerView.Adapter#notifyDataSetChanged()}
+     * - Pass new songs ArrayList to {@link MusicService}
+     * </p>
+     */
     private void shuffleSongList() {
-        Collections.shuffle(songs, new Random(getRandomSeed()));
+        musicRetriever.shuffleList(songs);
         songAdapter.notifyDataSetChanged();
-
         musicService.setSongs(songs);
     }
 
-    private long getRandomSeed() {
-        return System.currentTimeMillis();
-    }
-
-    public void getSongList() {
-        ContentResolver musicResolver = getContentResolver();
-        Uri musicUri = android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
-        Uri artworkUri = Uri.parse("content://media/external/audio/albumart");
-
-        Cursor musicCursor = musicResolver.query(musicUri, null, null, null, null);
-
-        if (musicCursor != null && musicCursor.moveToFirst()) {
-            int titleColumn = musicCursor.getColumnIndex
-                    (MediaStore.Audio.Media.TITLE);
-            int idColumn = musicCursor.getColumnIndex
-                    (MediaStore.Audio.Media._ID);
-            int artistColumn = musicCursor.getColumnIndex
-                    (MediaStore.Audio.Media.ARTIST);
-            int albumIdColumn = musicCursor.getColumnIndex
-                    (MediaStore.Audio.Media.ALBUM_ID);
-
-            do {
-                long thisId = musicCursor.getLong(idColumn);
-                String thisTitle = musicCursor.getString(titleColumn);
-                String thisArtist = musicCursor.getString(artistColumn);
-                long albumId = musicCursor.getLong(albumIdColumn);
-                String albumArt = "";
-
-                try {
-                    albumArt = (ContentUris.withAppendedId(artworkUri, albumId)).toString();
-                    Log.d(TAG, "TEST Album art: " + albumArt);
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-
-                songs.add(new Song(thisId, thisTitle, thisArtist, albumArt));
-            }
-            while (musicCursor.moveToNext());
-        }
-
-        if (musicCursor != null)
-            musicCursor.close();
-    }
-
+    /**
+     * Method for starting {@link TimerTask} which will change UI in response of changing playback's state
+     * <p/>
+     * <p>
+     * Method updates UI element such as {@link TextView}, {@link SeekBar} in response of playing
+     * using {@link TimerTask} and {@link Timer}
+     * </p>
+     *
+     * @param song - Current {@link Song}
+     */
     private void startUpdateTask(Song song) {
         setPaused(false);
 
@@ -648,33 +714,9 @@ public class MainActivity extends AppCompatActivity {
         timer.schedule(updateTask, 0, 1000);
     }
 
-    private void refreshUpdateTask(Song song) {
-        stopUpdateTask();
-        prepareUpdateTask(song);
-
-        updateTask = new TimerTask() {
-            @Override
-            public void run() {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            PBsongBar.setProgress(musicService.getCurrentPosition());
-                            TVtimeStampCurrent.setText(msToString(musicService.getCurrentPosition()));
-
-                            Log.d(TAG, "updateTask -> Current position: " + msToString(musicService.getCurrentPosition()));
-                        } catch (Exception ex) {
-                            Log.e(TAG, "updateTask -> ", ex);
-                        }
-                    }
-                });
-            }
-        };
-
-        timer = new Timer();
-        timer.schedule(updateTask, 0, 1000);
-    }
-
+    /**
+     * Check and stop {@link MainActivity#updateTask} and {@link MainActivity#timer}
+     */
     private void stopUpdateTask() {
         if (timer != null)
             timer.cancel();
@@ -682,6 +724,12 @@ public class MainActivity extends AppCompatActivity {
             updateTask.cancel();
     }
 
+    /**
+     * Prepare update task
+     * {@link MainActivity#startUpdateTask(Song)}
+     *
+     * @param song - Current {@link Song}
+     */
     private void prepareUpdateTask(Song song) {
         Log.d(TAG, "prepareUpdateTask() ->" +
                 "\nArtist: " + song.getArtist() +
@@ -778,6 +826,9 @@ public class MainActivity extends AppCompatActivity {
         return finalTimerString;
     }
 
+    /**
+     * Method for toggling repeat state
+     */
     private void toggleRepeatState() {
         if (musicService.getRepeatState()) {
             setRepeatOff();
@@ -786,23 +837,25 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * {@link MainActivity#toggleRepeatState()} ()}
+     */
     private void setRepeatOn() {
         musicService.setRepeatOn();
         IBcontrolRepeat.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_repeat_primary_24dp));
     }
 
+    /**
+     * {@link MainActivity#toggleRepeatState()} ()}
+     */
     private void setRepeatOff() {
         musicService.setRepeatOff();
         IBcontrolRepeat.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_repeat_black_24dp));
     }
 
-    @Override
-    public void onDestroy() {
-        stopUpdateTask();
-
-        super.onDestroy();
-    }
-
+    /**
+     * Method for toggling state of shuffle
+     */
     public void toggleShuffleState() {
         if (musicService.getShuffleState()) {
             setShuffleOff();
@@ -811,11 +864,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * {@link MainActivity#toggleShuffleState()}
+     */
     private void setShuffleOn() {
         musicService.setShuffleOn();
         IBcontrolShuffle.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_shuffle_primary_24dp));
     }
 
+    /**
+     * {@link MainActivity#toggleShuffleState()}
+     */
     private void setShuffleOff() {
         musicService.setShuffleOff();
         IBcontrolShuffle.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_shuffle_black_24dp));
@@ -1003,14 +1062,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    protected void onResume() {
-        IntentFilter filter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
-        registerReceiver(musicIntentReceiver, filter);
-        super.onResume();
-        checkMute();
-    }
 
+    /**
+     * BroadcastReceiver for handling headset plug/unplug
+     */
     private class MusicIntentReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {

@@ -3,10 +3,10 @@
 
     <item
         android:id="@+id/action_copy"
-        android:title="Копировать название" />
+        android:title="Копiювати назву" />
 
     <item
         android:id="@+id/chrome_client"
-        android:title="Chrome Custom Tabs" />
+        android:title="Про виконавця" />
 
 </menu>
