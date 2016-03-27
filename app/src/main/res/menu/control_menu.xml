@@ -6,15 +6,7 @@
         android:title="Копировать название" />
 
     <item
-        android:id="@+id/action_setting_rewind"
-        android:title="Rewind length" />
-
-    <item
         android:id="@+id/chrome_client"
         android:title="Chrome Custom Tabs" />
-
-    <item
-        android:id="@+id/action_service"
-        android:title="Service test" />
 
 </menu>
