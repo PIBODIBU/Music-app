@@ -37,6 +37,12 @@ public class MusicRetriever {
 
     /**
      * Method used for retrieving music files from external storage
+     * <p/>
+     * <p>
+     * The most common method for retrieving music files from external storage.
+     * Retrieving logic is based on {@link Cursor}. Songs are storaged in {@code ArrayList<Song>}.
+     * {@link Song} is used as DataModel for saving song's data (e.g. artist name, album art uri, etc.).
+     * </p>
      *
      * @return - {@link ArrayList} of {@link Song}
      */
@@ -47,9 +53,12 @@ public class MusicRetriever {
         Uri musicUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
         Uri artworkUri = Uri.parse("content://media/external/audio/albumart");
 
+        Log.d(TAG, "getSongFromExternalStorage() -> EXTERNAL_CONTENT_URI: " + musicUri);
+
         Cursor musicCursor = musicResolver.query(musicUri, null, null, null, null);
 
         if (musicCursor != null && musicCursor.moveToFirst()) {
+            // Getting indexes of columns
             int titleColumn = musicCursor.getColumnIndex
                     (MediaStore.Audio.Media.TITLE);
             int idColumn = musicCursor.getColumnIndex
@@ -59,6 +68,7 @@ public class MusicRetriever {
             int albumIdColumn = musicCursor.getColumnIndex
                     (MediaStore.Audio.Media.ALBUM_ID);
 
+            // Retrieving data
             do {
                 long thisId = musicCursor.getLong(idColumn);
                 String thisTitle = musicCursor.getString(titleColumn);
@@ -72,6 +82,7 @@ public class MusicRetriever {
                     Log.e(TAG, "getSongFromExternalStorage() -> ", ex);
                 }
 
+                // Adding new Song to ArrayList
                 songs.add(new Song(thisId, thisTitle, thisArtist, albumArt));
             }
             while (musicCursor.moveToNext());
@@ -80,11 +91,19 @@ public class MusicRetriever {
         if (musicCursor != null)
             musicCursor.close();
 
+        Log.d(TAG, "getSongFromExternalStorage() -> ArrayList size:" + songs.size());
+
         return songs;
     }
 
     /**
      * Method used for retrieving music files from internal storage
+     * <p/>
+     * <p>
+     * WARNING! Use it at your own risk.
+     * This method retrieves all music files from internal storage (include system sounds).
+     * Playing some ot them may cause Application crash.
+     * </p>
      *
      * @return - {@link ArrayList} of {@link Song}
      */
@@ -128,6 +147,8 @@ public class MusicRetriever {
         if (musicCursor != null)
             musicCursor.close();
 
+        Log.d(TAG, "getSongFromInternalStorage() -> ArrayList size:" + songs.size());
+
         return songs;
     }
 
@@ -144,10 +165,20 @@ public class MusicRetriever {
         });
     }
 
-    public void shuffleList(ArrayList<Song> songs) {
-        Collections.shuffle(songs, new Random(getRandomSeed()));
+    /**
+     * Method for shuffling {@link ArrayList}
+     *
+     * @param arrayList - ArrayList for shuffling
+     */
+    public void shuffleList(ArrayList<Song> arrayList) {
+        Collections.shuffle(arrayList, new Random(getRandomSeed()));
     }
 
+    /**
+     * Get random seed based on {@link System#currentTimeMillis()}
+     *
+     * @return - New random seed
+     */
     private long getRandomSeed() {
         return System.currentTimeMillis();
     }

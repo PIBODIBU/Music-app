@@ -292,13 +292,15 @@ public class MusicService extends Service {
         try {
             musicPlayer.setDataSource(getApplicationContext(), trackUri);
         } catch (Exception ex) {
-            Log.e(TAG, "Error setting data source", ex);
+            Log.e(TAG, "playSong() -> Error setting data source", ex);
         }
 
         try {
             musicPlayer.prepare();
         } catch (IOException ex) {
-            Log.e(TAG, "Error setting data source", ex);
+            Log.e(TAG, "playSong() -> Error setting data source", ex);
+        } catch (IllegalStateException ex) {
+            Log.e(TAG, "playSong() -> Error setting data source", ex);
         }
     }
 

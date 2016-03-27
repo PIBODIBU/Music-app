@@ -655,8 +655,10 @@ public class MainActivity extends AppCompatActivity {
      * </p>
      */
     private void setUpArrayList() {
-        songs = musicRetriever.getSongs();
+        songs.addAll(musicRetriever.getSongFromExternalStorage());
+        Log.d(TAG, "setUpArrayList() -> ArrayList size: " + songs.size());
         musicRetriever.sortListAlphabet(songs);
+        songAdapter.notifyDataSetChanged();
     }
 
     /**
