@@ -2,8 +2,6 @@ package com.android.simplemusic;
 
 import android.app.Activity;
 import android.app.Dialog;
-import android.app.Notification;
-import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -45,13 +43,12 @@ import android.widget.Toast;
 
 import com.android.simplemusic.Support.AnimationSupport;
 import com.android.simplemusic.Support.Chrome.CustomTabActivityHelper;
+import com.android.simplemusic.Support.SharedPrefsUtils;
 import com.bumptech.glide.Glide;
 import com.squareup.picasso.Callback;
 import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -62,6 +59,7 @@ public class MainActivity extends AppCompatActivity {
 
     private final String TAG = getClass().getSimpleName();
 
+    private SharedPrefsUtils sharedPrefsUtils;
     private MusicRetriever musicRetriever;
     private MusicIntentReceiver musicIntentReceiver = new MusicIntentReceiver();
     private ClipboardManager clipboardManager;
@@ -127,35 +125,13 @@ public class MainActivity extends AppCompatActivity {
 
     // Save instance
     private final String TAG_WAS_PLAYING = "TAG_WAS_PLAYING";
+    private final String TAG_WAS_PAUSED = "TAG_WAS_PAUSED";
     private boolean INSTANCE_WAS_PLAYING = false;
+    private boolean INSTANCE_WAS_PAUSED = false;
 
     // Service
     private MusicService musicService = new MusicService();
     private Intent musicIntent;
-
-    @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-        musicIntent = new Intent(this, MusicService.class);
-        musicRetriever = new MusicRetriever(this);
-        clipboardManager = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-
-        initLayout();
-        setSupportActionBar(toolbar);
-        initBottomSheet();
-        setUpRecyclerView();
-        checkMute();
-
-        if (savedInstanceState != null) {
-            // Using variable because musicService will be initialized only in onServiceConnected()
-            if (savedInstanceState.getBoolean(TAG_WAS_PLAYING, false)) {
-                INSTANCE_WAS_PLAYING = true;
-            }
-        }
-    }
 
     /**
      * Base connection to {@link MusicService}
@@ -175,16 +151,36 @@ public class MainActivity extends AppCompatActivity {
                 // Triggering boolean variable
                 isServiceBound = true;
 
-                Log.d(TAG, "Service -> Service Connected");
+                Log.d(TAG, "onServiceConnected() -> Service Connected");
 
                 // Checking if orientation was changed
-                if (INSTANCE_WAS_PLAYING) {
+                Log.d(TAG, "\nonServiceConnected() -> " +
+                        "\nINSTANCE_WAS_PLAYING: " + INSTANCE_WAS_PLAYING +
+                        "\nINSTANCE_WAS_PAUSED: " + INSTANCE_WAS_PAUSED);
+
+                if (INSTANCE_WAS_PLAYING || INSTANCE_WAS_PAUSED) {
                     startUpdateTask(songs.get(musicService.getSongPosition()));
                     openBottomBar();
                 }
 
+                Log.d(TAG, "\nonServiceConnected() -> " +
+                        "\nsharedPrefsUtils.getPlayingState(): " + sharedPrefsUtils.getPlayingState() +
+                        "\nsharedPrefsUtils.getPauseState(): " + sharedPrefsUtils.getPauseState());
+
+                if (musicService.getSongPosition() != -1) {
+                    if (sharedPrefsUtils.getPlayingState()) {
+                        startUpdateTask(songs.get(musicService.getSongPosition()));
+                        openBottomBar();
+                    } else if (sharedPrefsUtils.getPauseState()) {
+                        refreshUpdateTask(songs.get(musicService.getSongPosition()));
+                        openBottomBar();
+                    }
+                } else {
+                    Log.e(TAG, "onServiceConnected() -> musicService.getSongPosition() == -1");
+                }
+
             } catch (Exception ex) {
-                Log.e(TAG, "Service -> Error Connecting Service", ex);
+                Log.e(TAG, "onServiceConnected() -> Error Connecting Service", ex);
 
                 isServiceBound = false;
             }
@@ -197,6 +193,45 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "Service -> Service Disconnected");
         }
     };
+
+    @Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        sharedPrefsUtils = new SharedPrefsUtils(this);
+        musicIntent = new Intent(this, MusicService.class);
+        musicRetriever = new MusicRetriever(this);
+        clipboardManager = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+
+        initLayout();
+        setSupportActionBar(toolbar);
+        initBottomSheet();
+        setUpRecyclerView();
+        checkMute();
+    }
+
+    @Override
+    protected void onPostCreate(@Nullable Bundle savedInstanceState) {
+        super.onPostCreate(savedInstanceState);
+
+        if (savedInstanceState != null) {
+            // Using variable because musicService will be initialized only in onServiceConnected()
+            Log.d(TAG, "\nonPostCreate() -> " +
+                    "\nTAG_WAS_PLAYING: " + savedInstanceState.getBoolean(TAG_WAS_PLAYING, false) +
+                    "\nTAG_WAS_PAUSED: " + savedInstanceState.getBoolean(TAG_WAS_PAUSED, false));
+
+            if (savedInstanceState.getBoolean(TAG_WAS_PLAYING, false)) {
+                INSTANCE_WAS_PLAYING = true;
+            }
+            if (savedInstanceState.getBoolean(TAG_WAS_PAUSED, false)) {
+                INSTANCE_WAS_PAUSED = true;
+            }
+        } else {
+            Log.e(TAG, "onPostCreate() -> savedInstanceState in null");
+        }
+    }
 
     @Override
     protected void onStart() {
@@ -230,6 +265,19 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onDestroy() {
         stopUpdateTask();
+        unregisterReceiver(musicIntentReceiver);
+
+        /**
+         * Saving current state of playback
+         * <p/>
+         * <p>
+         * sharedPrefsUtils used for saving persistent state.
+         * Because of using {@link MusicService} we should save (boolean) playing state.
+         * i.e. we save {@link MusicService#isPlaying()}
+         * </p>
+         */
+        sharedPrefsUtils.savePauseState(musicService.isPaused());
+        sharedPrefsUtils.savePlayingState(musicService.isPlaying());
 
         super.onDestroy();
     }
@@ -238,15 +286,23 @@ public class MainActivity extends AppCompatActivity {
      * Saving current state of playback
      * <p/>
      * <p>
+     * onSaveInstanceState() used for saving non-persistent state.
      * Because of using {@link MusicService} we should save (boolean) playing state.
      * i.e. we save {@link MusicService#isPlaying()}
      * </p>
      */
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-        outState.putBoolean(TAG_WAS_PLAYING, musicService.isPlaying());
-
         super.onSaveInstanceState(outState);
+
+        Log.d(TAG, "onSaveInstanceState()");
+
+        outState.putBoolean(TAG_WAS_PLAYING, musicService.isPlaying());
+        outState.putBoolean(TAG_WAS_PAUSED, musicService.isPaused());
+
+        Log.d(TAG, "\nonSaveInstanceState() -> " +
+                "\nmusicService.isPlaying(): " + musicService.isPlaying() +
+                "\nmusicService.isPaused(): " + musicService.isPaused());
     }
 
     @Override
@@ -716,6 +772,35 @@ public class MainActivity extends AppCompatActivity {
         timer.schedule(updateTask, 0, 1000);
     }
 
+    private void refreshUpdateTask(Song song) {
+        setPaused(true);
+
+        stopUpdateTask();
+        prepareUpdateTask(song);
+
+        updateTask = new TimerTask() {
+            @Override
+            public void run() {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            PBsongBar.setProgress(musicService.getCurrentPosition());
+                            TVtimeStampCurrent.setText(msToString(musicService.getCurrentPosition()));
+
+                            Log.d(TAG, "updateTask -> Current position: " + msToString(musicService.getCurrentPosition()));
+                        } catch (Exception ex) {
+                            Log.e(TAG, "updateTask -> ", ex);
+                        }
+                    }
+                });
+            }
+        };
+
+        timer = new Timer();
+        timer.schedule(updateTask, 0, 1000);
+    }
+
     /**
      * Check and stop {@link MainActivity#updateTask} and {@link MainActivity#timer}
      */
@@ -1063,7 +1148,6 @@ public class MainActivity extends AppCompatActivity {
             refreshSeekBars();
         }
     }
-
 
     /**
      * BroadcastReceiver for handling headset plug/unplug

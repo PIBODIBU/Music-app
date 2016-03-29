@@ -14,13 +14,18 @@ import android.net.Uri;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.PowerManager;
-import android.support.v4.content.ContextCompat;
 import android.util.Log;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
 
+
+/**
+ * This class represents base logic of player.
+ * {@link Service} is used instead of {@link android.app.Activity} for possibility of playback in background (even if Application is closed).
+ */
 public class MusicService extends Service {
 
     private static final String TAG = "MusicService";
@@ -41,7 +46,6 @@ public class MusicService extends Service {
     private boolean shuffle = false;
     private boolean paused = true;
     private boolean repeat = false;
-    private boolean wasPlugged = false;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -73,16 +77,18 @@ public class MusicService extends Service {
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
         random = new Random(getRandomSeed());
-        songPosition = 0;
 
         initMusicPlayer();
+        setSongPosition(-1);
 
-        songPosition = 0;
-        songTitle = "National Aviation University";
+        /*songTitle = "National Aviation University";
         songArtist = "Simple MusicPlayer";
-        makeNotification(R.drawable.ic_pause_white_24dp);
+        makeNotification(R.drawable.ic_pause_white_24dp);*/
     }
 
+    /**
+     * Class for getting {@link Service} after binding it to {@link android.app.Activity}
+     */
     public class MusicBinder extends Binder {
         public MusicService getService() {
             Log.d(TAG, "getService()");
@@ -114,10 +120,20 @@ public class MusicService extends Service {
         return START_NOT_STICKY;
     }
 
+    /**
+     * Method for starting Service in foreground
+     * <p/>
+     * <p>
+     * Use this if you want Service works even after Application killing
+     * </p>
+     */
     private void startAsForeground() {
         startForeground(NOTIFY_ID, prepareNotification());
     }
 
+    /**
+     * Implementing base logic of {@link MediaPlayer}
+     */
     public void initMusicPlayer() {
         musicPlayer = new MediaPlayer();
 
@@ -174,23 +190,37 @@ public class MusicService extends Service {
      */
     public void setSongs(ArrayList<Song> songs) {
         this.songs = songs;
+
+        Log.d(TAG, "setSongs()- > songPosition: " + songPosition);
+
+        if (songPosition == -1) {
+            Log.d(TAG, "setSongs()- > songPosition == -1");
+
+            Song song = songs.get(0);
+
+            this.songTitle = song.getTitle();
+            this.songArtist = song.getArtist();
+
+            makeNotification(R.drawable.ic_pause_white_24dp);
+        }
     }
 
     /**
      * Get playing song position
      *
-     * @return - (int) index of playing song
+     * @return - (int) position of playing song in {@code songs}
      */
     public int getSongPosition() {
         return songPosition;
     }
 
     private void setSongPosition(int position) {
+        Log.d(TAG, "setSongPosition() -> position: " + position);
         this.songPosition = position;
     }
 
     /**
-     * Make new {@link Notification} about play/pause state
+     * Make new {@link Notification} (e.g. about play/pause state)
      *
      * @param icon - Small icon of Notification
      */
@@ -219,6 +249,9 @@ public class MusicService extends Service {
         notificationManager.notify(NOTIFY_ID, notification);
     }
 
+    /**
+     * Make new {@link Notification} (e.g. about play/pause state) without notifying it
+     */
     private Notification prepareNotification() {
         if (notification != null) {
             notificationManager.cancel(NOTIFY_ID);
@@ -244,9 +277,6 @@ public class MusicService extends Service {
         return notification;
     }
 
-    /**
-     * Music controls
-     */
     /**
      * Play song at position {@link MusicService#getSongPosition}
      */
@@ -275,6 +305,11 @@ public class MusicService extends Service {
         }
     }
 
+    /**
+     * Play song at position {@link MusicService#getSongPosition}
+     *
+     * @param position - Position of song it {@code songs}
+     */
     public void playSong(int position) {
         setSongPosition(position);
 
@@ -322,6 +357,11 @@ public class MusicService extends Service {
         playSong();
     }
 
+    /**
+     * Method for toggling pause state
+     *
+     * @param paused - State of pause
+     */
     public void setPaused(boolean paused) {
         if (paused) {
             this.paused = true;
