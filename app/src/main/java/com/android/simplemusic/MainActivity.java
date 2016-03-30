@@ -353,7 +353,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Basic warning about non-availability of connection with {@link android.app.Service}
+     * Basic warning about non-availability of connection with {@link android.app.Service}. In our case it's {@link MusicService}
      */
     private void showWarning() {
         Toast.makeText(getApplicationContext(), "Service is not bound", Toast.LENGTH_SHORT).show();
