@@ -253,6 +253,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onPause() {
+        /**
+         * Saving current state of playback
+         * <p/>
+         * <p>
+         * sharedPrefsUtils used for saving persistent state.
+         * Because of using {@link MusicService} we should save (boolean) playing state.
+         * i.e. we save {@link MusicService#isPlaying()}
+         * </p>
+         */
+        sharedPrefsUtils.savePauseState(musicService.isPaused());
+        sharedPrefsUtils.savePlayingState(musicService.isPlaying());
+
+        super.onPause();
+    }
+
+    @Override
     protected void onResume() {
         IntentFilter filter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
         registerReceiver(musicIntentReceiver, filter);
