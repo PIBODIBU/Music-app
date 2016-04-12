@@ -1,5 +1,4 @@
 # Music app
-**Simple Material Design music app. Works on pre-Lollipop as well as on Lollipop. This repository is public, anyone can contribute.** 
 
 ![alt tag](https://github.com/PIBODIBU/Music-app/blob/master/Screenshots/1.png) ![alt tag](https://github.com/PIBODIBU/Music-app/blob/master/Screenshots/2.png)
 
